@@ -1,0 +1,59 @@
+<head>
+	<title>Witchhunt</title>
+</head>
+
+<body>
+	<h1>Welcome to Meteor!</h1>
+	{{> loginButtons}}
+	<ul>
+		{{#each game_dir}}
+			{{> game_dir_entry}}
+		{{/each}}
+		{{#if currentUser}}
+			{{> new_game}}
+		{{/if}}
+		{{#each game_selected}}
+			{{> game_panel}}
+		{{/each}}
+	</ul>
+</body>
+
+<template name="game_dir_entry">
+	<li><p class="game-dir-line">{{description}}</p>
+		<button class="join-game">Join</button>
+		<button class="leave-game">Leave</button>
+		<button class="debug-populate-game">Debug Populate</button>
+		<button class="setup-game">Setup</button>		
+		<button class="advance-game">Advance</button>
+	</li>
+</template>
+
+<template name="new_game">
+	<button id="create-game">Create Game</button>
+</template>
+
+<template name="game_panel">
+	<p>{{description}}</p>
+	<p>{{data}}</p>
+	{{#each players}}
+		{{>player}}
+	{{/each}}
+	{{#each targets}}
+		{{> target}}
+	{{/each}}
+	{{#each log_events}}
+		{{> log_event}}
+	{{/each}}
+</template>
+
+<template name="player">
+	<p>{{player_readout}}</p>
+</template>
+
+<template name="target">
+
+</template>
+
+<template name="log_event">
+	<p>{{log_parse}}</p>
+</template>
