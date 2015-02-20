@@ -16,10 +16,10 @@ stepScheduleDict = {"Signup":		[],
 									 "Apprentice"],
 					"Day":			["dayStart", "victoryCheckA", "debugRandomTargets", "lynch-master", "victoryCheckB", "bombPassCheck"],
 					"Day-Insert":   ["Judge", "Apprentice-J"], //dummy, only for reference 
-					"Night":		["nightStart", "debugRandomTargets", "Gravedigger", "Apprentice-G",
+					"Night":		["nightStart", "debugRandomTargets", "Gravedigger", "Apprentice-G", "Fanatic-2",
 									 "angelDemonMasterMultiplex",
 									 "witchMultiplex",
-									 "Priest", "Inquisitor", "Spiritualist",
+									 "Priest", "Fanatic", "Inquisitor", "Spiritualist",
 									 "Hunter", "Bomber",
 									 "resolveNightKills"],
 					"Reaction": 	["DOB", "BOD"], //dummy, only for reference

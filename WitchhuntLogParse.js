@@ -10,9 +10,25 @@ parseLogEvent = function(g, e) {
 		case '$ALC':
 			o += '';
 			break;
-		case '$A':
-			o += '';
-			break;
+		case '$A':			
+			var actor = "The Apprentice";
+			if (e.hasOwnProperty("actors")) {
+				actor = g.playerNameList[e.actors[0]] + " the Apprentice";
+			}
+			var target = 'someone';
+			var target2 = 'they';
+			if (e.hasOwnProperty('targets')) {
+				target = g.playerNameList[e.targets[0]];
+				target2 = target;
+			}
+			var role = 'either the Gravedigger or the Judge';
+			if (e.hasOwnProperty('selectedRoleIndex')) {
+				if (e.selectedRoleIndex == 77) {
+					return actor + " declined to select a job.";
+				}
+				role = "the " + masterRoleList[e.selectedRoleIndex];
+			}
+			return actor + " learned that " + target + " is " + role + " and will take over that job if " + target2 + " dies.";
 		case '$ASN':
 			o += '';
 			break;
@@ -104,8 +120,25 @@ parseLogEvent = function(g, e) {
 			o += '';
 			break;
 		case '$G1':
-			o += '';
-			break;
+			var actor = "The Gambler";
+			if (e.hasOwnProperty("actors")) {
+				actor = g.playerNameList[e.actors[0]] + " the Gambler";
+			}
+			var choice = 'either odd or even';
+			if (e.hasOwnProperty('selectionInt')) {
+				switch (e.selectionInt) {
+					case 0:
+						choice = "even";
+						break;
+					case 1:
+						choice = "odd";
+						break;
+					default: //77
+						return actor + " declined to choose odd or even, and will receive no special protection.";
+						break;
+				}
+			}
+			return actor + " choose to be protected on " + choice + " nights.";
 		case '$G2':
 			o += '';
 			break;

@@ -34,22 +34,22 @@ if (Meteor.isClient) {
 		if (gid != null) {
 			var g = Games.findOne({gid: gid});
 			if (g == undefined) {
-				Session.set("gid", null);
-				Session.set("pid", null);
-				Session.set("permissionsKey", null);
-				Session.set("permissionsList", null);
-				Session.set("myLog", []);
+				//Session.set("gid", null);
+				//Session.set("pid", null);
+				//Session.set("permissionsKey", null);
+				//Session.set("permissionsList", null);
+				//Session.set("myLog", []);
 			} else {
 				var pid = g.playerIDList.indexOf(Meteor.userId());
 				if (pid == -1) {
-					Session.set("pid", null);
-					Session.set("permissionsKey", null);
-					Session.set("permissionsList", null);
+					//Session.set("pid", null);
+					//Session.set("permissionsKey", null);
+					//Session.set("permissionsList", null);
 				} else {
 					Session.set("pid", pid);
 					if (g.private == undefined || g.private.playerList == undefined) {
-						Session.set("permissionsKey", null);
-						Session.set("permissionsList", null);
+						//Session.set("permissionsKey", null);
+						//Session.set("permissionsList", null);
 					} else {
 						var myIndex = 0;
 						if (g.private.playerList.length > 1) {
@@ -60,8 +60,28 @@ if (Meteor.isClient) {
 						var myPL = PermissionsLists.findOne({gid: gid, key: myKey});
 						if (myPL != null) {
 							Session.set("permissionsList", myPL.pl);
+						} else {
+							//Session.set("permissionsList", null);
 						}
 					}
+				}
+			}
+		} else { //gid == null
+			var g = Games.findOne({moderatorID: Meteor.userId()},{sort: {createdAt: -1}});
+			if (g != undefined) {
+				Session.set("gid", g.gid);
+				Session.set("pid", null);
+				Session.set("permissionsKey", null);
+				Session.set("permissionsList", null);
+				Session.set("myLog", []);
+			} else {
+				g = Games.findOne({playerIDList: Meteor.userId()},{sort: {createdAt: -1}});
+				if (g != undefined) {
+					Session.set("gid", g.gid);
+					Session.set("pid", g.playerIDList.indexOf(Meteor.userId()));
+					Session.set("permissionsKey", null);
+					Session.set("permissionsList", null);
+					Session.set("myLog", []);
 				}
 			}
 		}
@@ -213,6 +233,9 @@ if (Meteor.isClient) {
 	});
 
 	Template.player.helpers({
+		"is_mod": function() {
+			return (Template.parentData(1).moderatorID != null && Template.parentData(1).moderatorID == Meteor.userId());
+		},
 		"player_readout": function() {
 			return this.username + ': \t' + masterRoleList[this.roleList[0]] + ' \t' + masterTeamDict[this.team];
 		},

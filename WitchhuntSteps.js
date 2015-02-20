@@ -172,14 +172,16 @@ stepDict = {
 			var extraLivesList = [];
 			var deathDataList = [];
 			for (var pid = 0; pid < g.private.playerRoleListList.length; pid++) {
-				Targets.insert(new Target(g.gid, "lynch-vote#", pid, null));
+				if (g.userVoting) {
+					Targets.insert(new Target(g.gid, "lynch-vote#", pid, null));
+				}
 				PermissionsLists.insert(new PermissionsList(g.gid, pid, ['a' + pid]));
 				var myRoleList = g.private.playerRoleListList[pid];
 				for (var roleIndex in myRoleList) {
 					var roleString = masterRoleList[myRoleList[roleIndex]];
 					if (roleString == "Apprentice") {
 						stepResult.updateTargetTupleList.push([{gid: g.gid, tag: "Apprentice"},
-							{whitelist: [masterRoleList.indexOf("Gravedigger"), masterRoleList.indexOf("Judge")]}]);
+							{$set: {whitelist: [masterRoleList.indexOf("Gravedigger"), masterRoleList.indexOf("Judge")]}}]);
 					}
 					Targets.insert(new Target(g.gid, roleString, pid, null));
 					if (doubleTargetList.indexOf(roleString) != -1) { //some roles have two target objects
@@ -304,10 +306,12 @@ stepDict = {
 			for (var index in witchIDs) {
 				var pid = witchIDs[index];
 				stepResult.updatePermissionsKeyDict[pid] = "coven";
-				Targets.insert(new Target(g.gid, "coven-vote#", pid, g.private.currentSubchannelDict['c']));
-				Targets.insert(new Target(g.gid, "covenIllusion-vote#", pid, g.private.currentSubchannelDict['c']));
-				if (mixedJuniorIDs.length) {
-					Targets.insert(new Target(g.gid, "covenRecruit-vote#", null, g.private.currentSubchannelDict['c']));
+				if (g.userVoting) {
+					Targets.insert(new Target(g.gid, "coven-vote#", pid, g.private.currentSubchannelDict['c']));
+					Targets.insert(new Target(g.gid, "covenIllusion-vote#", pid, g.private.currentSubchannelDict['c']));
+					if (mixedJuniorIDs.length) {
+						Targets.insert(new Target(g.gid, "covenRecruit-vote#", null, g.private.currentSubchannelDict['c']));
+					}
 				}
 			}
 			return stepResult;
@@ -419,10 +423,15 @@ stepDict = {
 		target_auto: null,
 		step_auto: 5,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = {eventList: [], gameUpdateDict: {}, updateTargetTupleList: []};
 			//stepResult.eventList.push({tag: '', actors: [], targets: []});
-			stepResult.gameUpdateDict['private.tempTarget'] = null; //used for assassin
-			stepResult.gameUpdateDict['private.angelMessage'] = null; //temp var used to save angel messages between states
+			if (g.userVoting) {
+				stepResult.updateTargetTupleList.push([{gid: g.gid, tag: {$regex: /lynch-/}}, {$set: {locked: 0}}]);
+			}
+			stepResult.gameUpdateDict['lastLynchTarget'] = null;
+			stepResult.gameUpdateDict['private.tempTarget'] = null;
+			stepResult.gameUpdateDict['private.checkedFanatic'] = false;
+			stepResult.gameUpdateDict['private.angelMessage'] = null;
 			stepResult.gameUpdateDict['private.angelProtectList'] = [];
 			stepResult.gameUpdateDict['private.shenanigansTargetList'] = [];
 			stepResult.gameUpdateDict['private.curseTargetList'] = [];
@@ -440,10 +449,14 @@ stepDict = {
 		step: function(g) {
 			var stepResult = {eventList: [], gameUpdateDict: {}};
 			var t = Targets.findOne({gid: g.gid, tag: "lynch-master"});
+			var lynchTarget = [77];
 			if (t.t[0] != 77) {
-
+				lynchTarget = t.t;
+			} else {
+				var votes_cursor = Targets.find({gid: gid, tag: {$regex: /lynch-/}});
+				lynchTarget = tallyVotes(votes_cursor, true);
 			}
-			stepResult.eventList.push({tag: '@L', actors: [], targets: []});
+			stepResult.eventList.push({tag: '@LK', targets: lynchTarget});
 			return stepResult;
 		},
 	},
@@ -476,6 +489,9 @@ stepDict = {
 		step_auto: 1,
 		step: function(g) {
 			var stepResult = {eventList: [], gameUpdateDict: {}};
+			if (g.userVoting) {
+				stepResult.updateTargetTupleList.push([{gid: g.gid, tag: {$regex: /lynch-/}}, {$set: {locked: 1}}]);
+			}
 			//TODO - adjust coven vote Target objects for last stand
 			//TODO - adjust coven vote Target objects for traitor join bonus
 			return stepResult;
@@ -618,21 +634,24 @@ stepDict = {
 		},
 	},
 	'Gambler': {
-		skip: function(g) {return true},
+		skip: null,
 		title: null,
 		role_index: masterRoleList.indexOf('Gambler'),
-		target_auto: null,
+		target_auto: 3,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = {eventList: [], gameUpdateDict: {}, updateTargetTupleList: []};
 			var t = Targets.findOne({gid: g.gid, tag: "Gambler"});
 			var myPID = t.a;
-			stepResult.eventList.push({tag: '', actors: [myPID], targets: []});
+			var selectionInt = t.t[0];
+			stepResult.updateTargetTupleList.push([{gid: g.gid, tag: "Gambler"}, {$set: {locked: 1}}]);
+			stepResult.gameUpdateDict['private.gamblerChoice'] = selectionInt;
+			stepResult.eventList.push({tag: '$G1', actors: [myPID], selectionInt: selectionInt});
 			return stepResult;
 		},
 	},
 	'Fanatic': {
-		skip: function(g) {return true},
+		skip: function(g) {return g.private.checkedFanatic},
 		title: null,
 		role_index: masterRoleList.indexOf('Fanatic'),
 		target_auto: null,
@@ -640,7 +659,30 @@ stepDict = {
 		step: function(g) {
 			var stepResult = {eventList: [], gameUpdateDict: {}};
 			var myPID = getPIDn(g, 'Fanatic');
-			stepResult.eventList.push({tag: '', actors: [myPID], targets: []});
+			var selfExtraLifeCount = g.private.extraLivesList[myPID];
+			stepResult.gameUpdateDict["private.extraLivesList." + myPID] = selfExtraLifeCount;
+			stepResult.eventList.push({tag: '$F', actors: [myPID], selfExtraLifeCount: selfExtraLifeCount});
+			return stepResult;
+		},
+	},
+	'Fanatic-2': {
+		skip: function(g) {
+			var priest_pid = getPIDn(g, 'Priest');
+			if (priest_pid != null && priest_pid == g.lastLynchTarget) {
+				return false;
+			}
+			return true;
+		},
+		title: null,
+		role_index: masterRoleList.indexOf('Fanatic'),
+		target_auto: null,
+		step_auto: 1,
+		step: function(g) {
+			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var myPID = getPIDn(g, 'Fanatic');
+			var selfExtraLifeCount = g.private.extraLivesList[myPID];
+			stepResult.gameUpdateDict["private.extraLivesList." + myPID] = selfExtraLifeCount;
+			stepResult.eventList.push({tag: '$F2', actors: [myPID], selfExtraLifeCount: selfExtraLifeCount});
 			return stepResult;
 		},
 	},
@@ -659,10 +701,18 @@ stepDict = {
 		step: function(g) {
 			var stepResult = {eventList: [], gameUpdateDict: {}};
 			var myPID = getPIDn(g, 'Gravedigger');
-			for (var pid = 0; pid < g.deathDataList.length; pid++) {
-				if (g.deathDataList[pid] != null && g.deathDataList[pid][0] == g.cycleNum) {
-					stepResult.eventList.push({tag: '$GD', actors: [myPID], targets: [pid],
-						resultCardList: resultCardList});
+			if (g.deathDataList[myPID] != null) { //dead gravedigger
+				for (var pid = 0; pid < g.deathDataList.length; pid++) {
+					if (g.deathDataList[pid] != null && g.deathDataList[pid][0] == g.cycleNum) {
+						stepResult.eventList.push({tag: '$GD', alive: 0, actors: [myPID], targets: [pid]});
+					}
+				}
+			} else { //living gravedigger
+				for (var pid = 0; pid < g.deathDataList.length; pid++) {
+					if (g.deathDataList[pid] != null && g.deathDataList[pid][0] == g.cycleNum) {
+						stepResult.eventList.push({tag: '$GD', alive: 1, actors: [myPID], targets: [pid],
+							resultCardList: resultCardList});
+					}
 				}
 			}
 			return stepResult;
@@ -675,7 +725,7 @@ stepDict = {
 		target_auto: 3,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = {eventList: [], gameUpdateDict: {}, updateTargetTupleList: []};
 			var t = Targets.findOne({gid: g.gid, tag: "Apprentice"});
 			var myPID = t.a;
 			var tPID = 77;
@@ -683,7 +733,10 @@ stepDict = {
 			if (selectedRoleIndex != 77) {
 				tPID = getPID(g, selectedRoleIndex);
 			}
-			//if target is judge, spawn an apprentice judge target?
+			if (selectedRoleIndex == masterRoleList.indexOf("Judge")) { //add apprentice-judge target object
+				Targets.insert(new Target(g.gid, "Apprentice-J", myPID, null));
+			}
+			stepResult.updateTargetTupleList.push([{gid: g.gid, tag: "Apprentice"}, {$set: {locked: 1}}]);
 			stepResult.gameUpdateDict['private.appenticeChoice'] = selectedRoleIndex;
 			stepResult.eventList.push({tag: '$A', actors: [myPID], targets: [tPID], selectedRoleIndex: selectedRoleIndex});
 			return stepResult;
@@ -718,10 +771,19 @@ stepDict = {
 			var stepResult = {eventList: [], gameUpdateDict: {}};
 			var myPID = getPIDn(g, 'Apprentice');
 			var deadGravediggerID = getPIDn(g, 'Gravedigger');
-			for (var pid = 0; pid < g.deathDataList.length; pid++) {
-				if (g.deathDataList[pid] != null && g.deathDataList[pid][0] == g.cycleNum) {
-					stepResult.eventList.push({tag: '$GD', actors: [myPID], targets: [pid],
-						resultCardList: resultCardList, deadGravediggerID: deadGravediggerID});
+			if (g.deathDataList[myPID] != null) { //dead apprentice
+				for (var pid = 0; pid < g.deathDataList.length; pid++) {
+					if (g.deathDataList[pid] != null && g.deathDataList[pid][0] == g.cycleNum) {
+						stepResult.eventList.push({tag: '$GD', alive: 0, actors: [myPID], targets: [pid],
+							deadGravediggerID: deadGravediggerID});
+					}
+				}
+			} else {
+				for (var pid = 0; pid < g.deathDataList.length; pid++) {
+					if (g.deathDataList[pid] != null && g.deathDataList[pid][0] == g.cycleNum) {
+						stepResult.eventList.push({tag: '$GD', alive: 1, actors: [myPID], targets: [pid],
+							resultCardList: resultCardList, deadGravediggerID: deadGravediggerID});
+					}
 				}
 			}
 			return stepResult;
@@ -1467,4 +1529,41 @@ function shuffle(array) {
         array[index] = temp;
     }
     return array;
+}
+
+function tallyVotes(cursor, requireTrueMajority) {
+	var total = cursor.count();
+	if (!total) {
+		return [77];
+	}
+	var votes = cursur.fetch();
+
+	var tallyList = {};
+	for (var index in votes) {
+		var targetList = votes[index].t;
+		for (var targetIndex in targetList) {
+			var target = targetList[targetIndex];	
+			if (!(target == 77)) {
+				if (!(target in tallyDict)) {
+					tallyDict[target] = 1;
+				} else {
+					tallyDict[target] += 1;
+				}
+			}
+		}
+	}
+	var tallyList = [];
+	for (var key in tallyDict) {
+		if ((!requireTrueMajority) || tallyDict[key] > Math.floor(total/2)) { //check for majority if required
+			tallyList.push({targetID: Number(key), count: tallyDict[key]});
+		}
+	}
+	tallyList.sort(function(a,b) {return a.count - b.count});
+
+	var resultsLength = votes[0].t.length;
+	var resultsList = tallyList.slice(0,-resultsLength).map(function(x) {return x.targetID});
+	while (resultsList.length < resultsLength) {
+		resultsList.push(77);
+	}
+	return resultsList;
 }

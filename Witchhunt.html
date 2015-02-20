@@ -55,9 +55,8 @@
 </template>
 
 <template name="player">
-	<p>{{username}} permissions: {{player_permissions}}</p>
 	{{#if is_mod}}
-		<p>{{player_readout}}</p>
+		<p>{{username}} permissions: {{player_permissions}}</p>
 	{{else}}
 		{{#each player_cards}}
 			{{>player_card}}

@@ -21,7 +21,8 @@ Game = function(gameName, moderatorID, moderatorName) {
 	this.aliveNum = null;
 	this.cycleNum = 0;
 	this.currentPhase = "Signup";
-	this.deathDataList = []; //initialize to null for every player; null if alive,[CYCLE_NUM, PHASE, TIME] if dead
+	this.deathDataList = []; //initialize to null for every player; null if alive,[CYCLE_NUM, PHASE, DEATH_ORDER, TIME] if dead
+	this.lastLynchTarget = null;
 	this.bombHolder = null;
 	this.hunterNight = null;
 
@@ -40,6 +41,7 @@ Game = function(gameName, moderatorID, moderatorName) {
 	this.private.currentTargetPrompt = null;
 	this.private.undoStepList = [];
 	this.private.interruptStepList = [];
+	this.private.gamblerChoice = null; //save this locally for speed
 	this.private.apprenticeChoice = null; //save this locally for speed
 	//secret game state vars (inter-phase)
 	this.private.playerTeamList = [];
@@ -66,6 +68,7 @@ Game = function(gameName, moderatorID, moderatorName) {
 
 	//temp vars (intra-phase inter-step)
 	this.private.tempTarget = null; //used for assassin
+	this.private.checkedFanatic = false; //local for speed
 	this.private.angelMessage = null; //temp var used to save angel messages between states
 	this.private.angelProtectList = [];
 	this.private.shenanigansTargetList = [];
@@ -314,8 +317,10 @@ processPermissionTemplates = function(g, permissionList, argsDict, value) {
 			}
 		} else if (p.slice(-1) == 'T') { //apply permission for each target
 			for (var index2 in argsDict['targets']) {						
-				var pid = argsDict['targets']
-				tempResults.push(p.slice(0,-1) + pid);
+				var pid = argsDict['targets'];
+				if (pid != 77) {
+					tempResults.push(p.slice(0,-1) + pid);
+				}
 			}
 		} else if (p.slice(-1) == 'V') { //apply permission for subevent value
 			tempResults.push(p.slice(0,-1) + value);

@@ -256,6 +256,15 @@ Meteor.methods({
 				}
 			}
 		}
+		if (masterRoleList.indexOf(myStepName.slice(0,-2)) != -1) { //ditto, for sometihng like Fanatic-2 or Apprentice-J
+			skip = true
+			for (var index in g.roleListList) {
+				if (g.roleListList[index].indexOf(masterRoleList.indexOf(myStepName.slice(0,-2))) != -1) {
+					skip = false;
+				}
+			}
+		}
+
 		if (myStep.skip != undefined && myStep.skip != null) {	//if step has a skip function...
 			if (myStep.skip(g)) {	//...that evals to true...
 				skip = true;		//...set flag to not eval step.
@@ -266,11 +275,11 @@ Meteor.methods({
 			//console.log("skipping step:" + myStepName);
 			return Meteor.call("step", gid, advance);
 		}
-		console.log("running step:" + myStepName);
+		//console.log("running step:" + myStepName);
 
 		var permissionsUpdateDict = {};
 		 //check if no target is needed, we stopped for a target last time, or we are on auto:
-		if (myStep.target_auto == null || g.currentTargetPrompt == g.private.stepList[0] || myStep.target_auto < g.auto) {
+		if (myStep.target_auto == null || g.private.currentTargetPrompt == g.private.stepList[0] || myStep.target_auto < g.auto) {
 			gameUpdateDict['private.currentTargetPrompt'] = null;
 		} else if (myStep.target_auto != null) { //else, we need a target resolved before we can advance
 			gameUpdateDict['private.currentTargetPrompt'] = g.private.stepList[0];
@@ -299,8 +308,7 @@ Meteor.methods({
 					if (tuple.length != 2) {
 						throw new Meteor.Error("malformed-update-target-tuple");
 					}
-					console.log(tuple[0], tuple[1]);
-					Targets.update(tuple[0], tuple[1]);
+					Targets.update(tuple[0], tuple[1], {multi: true});
 				}
 			}
 			if (stepResult.hasOwnProperty("gameUpdateDict")) { //dict[Game object param] = value to update to
