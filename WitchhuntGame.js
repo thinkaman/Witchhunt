@@ -25,8 +25,9 @@ Game = function(gameName, moderatorID, moderatorName) {
 	this.bombHolder = null;
 	this.hunterNight = null;
 
-	this.auto = 2; //auto-advances though all 
-	this.debugRandomTarget = false; //if true, any null targets will be replaced with a random non-null legal target
+	this.auto = 2; //auto-advance priority
+	this.userVoting = false; //do users get to vote?
+	this.debugRandomTargets = false; //if true, randomTarget steps will not be skipped
 
 	//TODO - deadline vars
 
@@ -39,6 +40,7 @@ Game = function(gameName, moderatorID, moderatorName) {
 	this.private.currentTargetPrompt = null;
 	this.private.undoStepList = [];
 	this.private.interruptStepList = [];
+	this.private.apprenticeChoice = null; //save this locally for speed
 	//secret game state vars (inter-phase)
 	this.private.playerTeamList = [];
 	this.private.playerRoleListList = [];
@@ -63,7 +65,7 @@ Game = function(gameName, moderatorID, moderatorName) {
 										};
 
 	//temp vars (intra-phase inter-step)
-	this.private.tempTarget; //used for assassin
+	this.private.tempTarget = null; //used for assassin
 	this.private.angelMessage = null; //temp var used to save angel messages between states
 	this.private.angelProtectList = [];
 	this.private.shenanigansTargetList = [];
@@ -102,7 +104,7 @@ Player = function(id, username, playerIndex, team, subteam, roleList) {
 	this.roleList = roleList; //simple index list--might be ultimately superfulous with Target entries
 	this.covenJoinTime = null;
 	this.courtJoinTime = null;
-	this.permissionsKey = playerIndex;
+	this.permissionsKey = String(playerIndex);
 	return this;
 }
 
@@ -112,11 +114,15 @@ Target = function(gid, tag, pid, subchannel) {
 		var value = targetTemplateDict[tag][key];
 		if (key == "tag") {
 			value = value.replace('#', '' + pid);
-		} else if (typeof(value) == typeof("")) {
+		} else if (typeof(value) == typeof("")) {	
 			value = value.replace('#', '' + pid).replace('S', '' + subchannel);
 		} else if (value != null && typeof(value) == typeof([]) && value.length && typeof(value[0]) == typeof("")) {
 			for (var index in value) {
-				value[index] = value[index].replace('#', '' + pid).replace('S', '' + subchannel);		
+				if (value[index] == '#') {
+					value[index] = pid;
+				} else {
+					value[index] = value[index].replace('#', '' + pid).replace('S', '' + subchannel);		
+				}
 			}
 		}
 		this[key] = value;
@@ -132,21 +138,52 @@ getLegalTargetList = function(g, t) {
 		case 1: //unique living player IDs
 			for (var pid = 0; pid < g.deathDataList.length; pid++) {
 				if (g.deathDataList[pid] == null) {
-					myList.push(pid);
+					if (t.hasOwnProperty("whitelist")) {
+						if (t.whitelist.indexOf(pid) != -1) {
+							myList.push(pid);
+						}
+					} else if (t.hasOwnProperty("blacklist")) {
+						if (t.blacklist.indexOf(pid) == -1) {
+							myList.push(pid);
+						}
+					} else {
+						myList.push(pid);
+					}
 				}
 			}
 			break;
 		case 3: //unique dead player IDs
 			for (var pid = 0; pid < g.deathDataList.length; pid++) {
 				if (g.deathDataList[pid] != null) {
-					myList.push(pid);
+					if (t.hasOwnProperty("whitelist")) {
+						if (t.whitelist.indexOf(pid) != -1) {
+							myList.push(pid);
+						}
+					} else if (t.hasOwnProperty("blacklist")) {
+						if (t.blacklist.indexOf(pid) == -1) {
+							myList.push(pid);
+						}
+					} else {
+						myList.push(pid);
+					}
 				}
 			}
 			break;
 		case 4: //unique character indexes
 			for (var pid in g.private.playerRoleListList) {
 				for (var index in g.private.playerRoleListList[pid]) {
-					myList.push(g.private.playerRoleListList[pid][index]);
+					var roleIndex = g.private.playerRoleListList[pid][index];
+					if (t.hasOwnProperty("whitelist")) {
+						if (t.whitelist.indexOf(roleIndex) != -1) {
+							myList.push(roleIndex);
+						}
+					} else if (t.hasOwnProperty("blacklist")) {
+						if (t.blacklist.indexOf(roleIndex) == -1) {
+							myList.push(roleIndex);
+						}
+					} else {
+						myList.push(roleIndex);
+					}
 				}
 			}
 			break;
@@ -181,7 +218,7 @@ getLegalTargetList = function(g, t) {
 
 PermissionsList = function(gid, key, initialList) {
 	this.gid = gid;
-	this.key = key;
+	this.key = String(key);
 	this.pl = initialList;
 }
 

@@ -205,7 +205,7 @@ if (Meteor.isClient) {
 			}
 		},
 		"targets": function() {
-			return Targets.find({gid: this.gid});
+			return Targets.find({gid: this.gid, locked: 0});
 		},
 		"log_events": function() {
 			return Session.get("myLog").sort(function(a,b) {return a.etime > b.etime});
@@ -263,7 +263,7 @@ if (Meteor.isClient) {
 
 			var myNewTargetList = t.t.slice();
 			myNewTargetList[myIndex] = myNewValue;
-			if (myNewValue != 77) {
+			if (myNewValue != 77) { //non-unique value?  swap with old location
 				var myOldValue = t.t[myIndex];
 				for (var i = 0; i < t.t.length; i++) {
 					if (i != myIndex && t.t[i] == event.target.value) {
@@ -272,7 +272,16 @@ if (Meteor.isClient) {
 					}
 				}
 			}
-			Meteor.call("changeTarget", t.gid, t.tag, myNewTargetList, t.active);
+			var myFinalTargetList = [];
+			for (var i = 0; i < myNewTargetList.length; i++) { //move everything up in fornt of the nones
+				if (myNewTargetList[i] != 77) { //77 is explicit none
+					myFinalTargetList.push(myNewTargetList[i]);
+				}
+			}
+			while (myFinalTargetList.length < t.t.length) { //pad with nones
+				myFinalTargetList.push(77);
+			}
+			Meteor.call("changeTarget", t.gid, t.tag, myFinalTargetList, t.active);
 		},
 	}),
 

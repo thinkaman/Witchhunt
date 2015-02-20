@@ -213,6 +213,7 @@ Meteor.methods({
 				Meteor.call("joinGame", gid, debugNames[i]);
 			}
 		}
+		Games.update({gid: gid}, {$set: {debugRandomTargets: true}})
 	},
 	step: function(gid, advance) {
 		check(gid, Number);
@@ -262,7 +263,7 @@ Meteor.methods({
 		}
 		if (skip) {
 			Games.update({gid: gid}, {$pop: {'private.stepList': -1}});
-			console.log("skipping step:" + myStepName);
+			//console.log("skipping step:" + myStepName);
 			return Meteor.call("step", gid, advance);
 		}
 		console.log("running step:" + myStepName);
@@ -279,10 +280,29 @@ Meteor.methods({
 
 		try {
 			var stepResult = myStep.step(g); //returns a step result object, which includes properties eventList and gameUpdateDict
-		} catch (err) {
-			throw err;
+		} catch (error) {
+			throw error;
 		}
 		if (stepResult != null) { //steps return a stepResult object with many possible instructions.  Let's handle them:
+			if (stepResult.hasOwnProperty("changeTargetDict")) { //dict[Target tag] = newTargets
+				for (var tag in stepResult.changeTargetDict) {
+					try {
+						Meteor.call("changeTarget", gid, tag, stepResult.changeTargetDict[tag], null);
+					} catch (error) {
+						//pass -- we don't care if debug targetting fails
+					}
+				}
+			}
+			if (stepResult.hasOwnProperty("updateTargetTupleList")) { //[[{search field} {update field}]]
+				for (var index in stepResult.updateTargetTupleList) {
+					var tuple = stepResult.updateTargetTupleList[index];
+					if (tuple.length != 2) {
+						throw new Meteor.Error("malformed-update-target-tuple");
+					}
+					console.log(tuple[0], tuple[1]);
+					Targets.update(tuple[0], tuple[1]);
+				}
+			}
 			if (stepResult.hasOwnProperty("gameUpdateDict")) { //dict[Game object param] = value to update to
 				for (var key in stepResult.gameUpdateDict) {
 					gameUpdateDict[key] = stepResult.gameUpdateDict[key];
@@ -306,7 +326,7 @@ Meteor.methods({
 						}
 						permissionsUpdateDict[permissionsKey].push(key + new_subchannel);
 					}
-					Target.update({gid: gid, p: (key + old_subchannel)}, {$set: {p: (key + new_subchannel)}}, {multi: true});
+					Targets.update({gid: gid, p: (key + old_subchannel)}, {$set: {p: (key + new_subchannel)}}, {multi: true});
 				}
 			}
 			if (stepResult.hasOwnProperty("updatePermissionsKeyDict")) { //dict[pid] = new permissionsKey
@@ -434,9 +454,6 @@ Meteor.methods({
 					}
 				}
 			}
-			if (stepResult.hasOwnProperty("targetUpdateDictDict")) { //dict[Target tag][Target param] = new value
-				//TODO
-			}
 			if (stepResult.hasOwnProperty("messagePostList")) { //list of Messages to post
 				//TODO
 			}
@@ -470,6 +487,9 @@ Meteor.methods({
 		}
 
 		changed = false;
+		if (active == null) { //no change
+			active = t.active;
+		}
 		if (active != t.active) {
 			changed = true;
 		} else {

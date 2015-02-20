@@ -164,19 +164,23 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = {eventList: [], gameUpdateDict: {}, updateTargetTupleList: []};
 			//generate and store events, prepare game.player objects, create Targets and PermissionsLists
 			stepResult.eventList.push({tag:"@START"});
 			Targets.insert(new Target(g.gid, "lynch-master", null, null));
 			var playerList = [];
 			var extraLivesList = [];
 			var deathDataList = [];
-			for (var pid in g.private.playerRoleListList) {
+			for (var pid = 0; pid < g.private.playerRoleListList.length; pid++) {
 				Targets.insert(new Target(g.gid, "lynch-vote#", pid, null));
 				PermissionsLists.insert(new PermissionsList(g.gid, pid, ['a' + pid]));
 				var myRoleList = g.private.playerRoleListList[pid];
 				for (var roleIndex in myRoleList) {
 					var roleString = masterRoleList[myRoleList[roleIndex]];
+					if (roleString == "Apprentice") {
+						stepResult.updateTargetTupleList.push([{gid: g.gid, tag: "Apprentice"},
+							{whitelist: [masterRoleList.indexOf("Gravedigger"), masterRoleList.indexOf("Judge")]}]);
+					}
 					Targets.insert(new Target(g.gid, roleString, pid, null));
 					if (doubleTargetList.indexOf(roleString) != -1) { //some roles have two target objects
 						Targets.insert(new Target(g.gid, (roleString + '-2'), pid, null));
@@ -231,10 +235,29 @@ stepDict = {
 			PermissionsLists.insert(new PermissionsList(g.gid, 'demons', ['xd']));
 			PermissionsLists.insert(new PermissionsList(g.gid, 'angelsDelayed', []));
 			PermissionsLists.insert(new PermissionsList(g.gid, 'demonsDelayed', []));
-
+			
 			stepResult.gameUpdateDict['private.playerList'] = playerList;
 			stepResult.gameUpdateDict['private.extraLivesList'] = extraLivesList;
 			stepResult.gameUpdateDict['deathDataList'] = deathDataList;
+			return stepResult;
+		},
+	},
+	'debugRandomTargets': {
+		skip: function(g) {return (!g.debugRandomTargets)},
+		title: null,
+		target_auto: null,
+		step_auto: 1,
+		step: function(g) {
+			var stepResult = {changeTargetDict: []};
+			var targets = Targets.find({gid: g.gid, locked: 0}).fetch();
+			for (var index in targets) {
+				var t = targets[index];
+				var newTargets = shuffle(getLegalTargetList(g, t)).slice(-t.t.length);
+				while (newTargets.length < t.t.length) {
+					newTargets.push(77);
+				}
+				stepResult.changeTargetDict[t.tag] = newTargets;
+			}
 			return stepResult;
 		},
 	},
@@ -249,7 +272,7 @@ stepDict = {
 			var witchIDs = [];
 			var mixedJuniorIDs = [];
 			var warlockIDs = [];
-			for (var pid in g.private.playerTeamList) {
+			for (var pid = 0; pid < g.private.playerTeamList.length; pid++) {
 				switch (g.private.playerTeamList[pid]) {
 					case -1:
 						witchIDs.push(pid);
@@ -282,7 +305,7 @@ stepDict = {
 				var pid = witchIDs[index];
 				stepResult.updatePermissionsKeyDict[pid] = "coven";
 				Targets.insert(new Target(g.gid, "coven-vote#", pid, g.private.currentSubchannelDict['c']));
-				Targets.insert(new Target(g.gid, "coven-vote#", pid, g.private.currentSubchannelDict['c']));
+				Targets.insert(new Target(g.gid, "covenIllusion-vote#", pid, g.private.currentSubchannelDict['c']));
 				if (mixedJuniorIDs.length) {
 					Targets.insert(new Target(g.gid, "covenRecruit-vote#", null, g.private.currentSubchannelDict['c']));
 				}
@@ -298,7 +321,7 @@ stepDict = {
 		step: function(g) {
 			var stepResult = {eventList: []};
 			var groupIDs = [];
-			for (var pid in g.private.playerTeamList) {
+			for (var pid = 0; pid < g.private.playerTeamList.length; pid++) {
 				if (g.private.playerTeamList[pid] == -2) {
 					groupIDs.push(pid)
 				}
@@ -315,7 +338,7 @@ stepDict = {
 		step: function(g) {
 			var stepResult = {eventList: []};
 			var groupIDs = [];
-			for (var pid in g.private.playerTeamList) {
+			for (var pid = 0; pid < g.private.playerTeamList.length; pid++) {
 				if (g.private.playerTeamList[pid] == -3) {
 					groupIDs.push(pid)
 				}
@@ -332,7 +355,7 @@ stepDict = {
 		step: function(g) {
 			var stepResult = {eventList: []};
 			var groupIDs = [];
-			for (var pid in g.private.playerTeamList) {
+			for (var pid = 0; pid < g.private.playerTeamList.length; pid++) {
 				if (g.private.playerTeamList[pid] == 2) {
 					groupIDs.push(pid)
 				}
@@ -349,7 +372,7 @@ stepDict = {
 		step: function(g) {
 			var stepResult = {eventList: []};
 			var groupIDs = [];
-			for (var pid in g.private.playerTeamList) {
+			for (var pid = 0; pid < g.private.playerTeamList.length; pid++) {
 				if (g.private.playerTeamList[pid] == 3) {
 					groupIDs.push(pid)
 				}
@@ -367,7 +390,7 @@ stepDict = {
 			var stepResult = {eventList: []};
 			for (var i = 1; i < 4; i++) {
 				var groupIDs = [];
-				for (var pid in g.private.playerTeamList) {
+				for (var pid = 0; pid < g.private.playerTeamList.length; pid++) {
 					if (g.private.playerTeamList[pid] == 40 + i) {
 						groupIDs.push(pid)
 					}
@@ -398,6 +421,29 @@ stepDict = {
 		step: function(g) {
 			var stepResult = {eventList: [], gameUpdateDict: {}};
 			//stepResult.eventList.push({tag: '', actors: [], targets: []});
+			stepResult.gameUpdateDict['private.tempTarget'] = null; //used for assassin
+			stepResult.gameUpdateDict['private.angelMessage'] = null; //temp var used to save angel messages between states
+			stepResult.gameUpdateDict['private.angelProtectList'] = [];
+			stepResult.gameUpdateDict['private.shenanigansTargetList'] = [];
+			stepResult.gameUpdateDict['private.curseTargetList'] = [];
+			stepResult.gameUpdateDict['private.nightProtectList'] = [];
+			stepResult.gameUpdateDict['private.nightKillList'] = [];
+			stepResult.gameUpdateDict['private.nightSurvivalList'] = [];
+			return stepResult;
+		},
+	},
+	'lynch-master': {
+		skip: false,
+		title: null,
+		target_auto: 5,
+		step_auto: 5,
+		step: function(g) {
+			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var t = Targets.findOne({gid: g.gid, tag: "lynch-master"});
+			if (t.t[0] != 77) {
+
+			}
+			stepResult.eventList.push({tag: '@L', actors: [], targets: []});
 			return stepResult;
 		},
 	},
@@ -423,25 +469,15 @@ stepDict = {
 			return stepResult;
 		},
 	},
-	'judgeMultiplex': {
-		skip: function(g) {return true},
+	'nightStart': {
+		skip: null,
 		title: null,
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
 			var stepResult = {eventList: [], gameUpdateDict: {}};
-			stepResult.eventList.push({tag: '', actors: [], targets: []});
-			return stepResult;
-		},
-	},
-	'gravediggerMultiplex': {
-		skip: function(g) {return true},
-		title: null,
-		target_auto: null,
-		step_auto: 1,
-		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
-			stepResult.eventList.push({tag: '', actors: [], targets: []});
+			//TODO - adjust coven vote Target objects for last stand
+			//TODO - adjust coven vote Target objects for traitor join bonus
 			return stepResult;
 		},
 	},
@@ -526,7 +562,7 @@ stepDict = {
 		},
 	},
 	'Judge': {
-		skip: function(g) {return true},
+		skip: null, //insert only
 		title: null,
 		role_index: masterRoleList.indexOf('Judge'),
 		target_auto: null,
@@ -609,7 +645,13 @@ stepDict = {
 		},
 	},
 	'Gravedigger': {
-		skip: function(g) {return true},
+		skip: function(g) {
+			if (g.privateApprenticeChoice == masterRoleList.indexOf("Gravedigger") &&
+				g.deathDataList[getPIDn(g, "Gravedigger")] != null) { //gravedigger dead + has apprentice
+				return true;
+			}
+			return false;
+		},
 		title: null,
 		role_index: masterRoleList.indexOf('Gravedigger'),
 		target_auto: null,
@@ -617,27 +659,38 @@ stepDict = {
 		step: function(g) {
 			var stepResult = {eventList: [], gameUpdateDict: {}};
 			var myPID = getPIDn(g, 'Gravedigger');
-			stepResult.eventList.push({tag: '', actors: [myPID], targets: []});
+			for (var pid = 0; pid < g.deathDataList.length; pid++) {
+				if (g.deathDataList[pid] != null && g.deathDataList[pid][0] == g.cycleNum) {
+					stepResult.eventList.push({tag: '$GD', actors: [myPID], targets: [pid],
+						resultCardList: resultCardList});
+				}
+			}
 			return stepResult;
 		},
 	},
 	'Apprentice': {
-		skip: function(g) {return true},
+		skip: null,
 		title: null,
 		role_index: masterRoleList.indexOf('Apprentice'),
-		target_auto: null,
+		target_auto: 3,
 		step_auto: 1,
 		step: function(g) {
 			var stepResult = {eventList: [], gameUpdateDict: {}};
 			var t = Targets.findOne({gid: g.gid, tag: "Apprentice"});
 			var myPID = t.a;
+			var tPID = 77;
+			var selectedRoleIndex = t.t[0];
+			if (selectedRoleIndex != 77) {
+				tPID = getPID(g, selectedRoleIndex);
+			}
 			//if target is judge, spawn an apprentice judge target?
-			stepResult.eventList.push({tag: '', actors: [myPID], targets: []});
+			stepResult.gameUpdateDict['private.appenticeChoice'] = selectedRoleIndex;
+			stepResult.eventList.push({tag: '$A', actors: [myPID], targets: [tPID], selectedRoleIndex: selectedRoleIndex});
 			return stepResult;
 		},
 	},
 	'Apprentice-J': {
-		skip: function(g) {return true},
+		skip: null, //insert only
 		title: null,
 		target_auto: null,
 		step_auto: 1,
@@ -646,6 +699,31 @@ stepDict = {
 			var t = Targets.findOne({gid: g.gid, tag: "Apprentice-J"});
 			var myPID = t.a;
 			stepResult.eventList.push({tag: '', actors: [myPID], targets: []});
+			return stepResult;
+		},
+	},
+	'Apprentice-G': {
+		skip: function(g) {
+			if (g.privateApprenticeChoice != masterRoleList.indexOf("Gravedigger")) {
+				return true;
+			} else if (g.deathDataList[getPIDn(g, "Gravedigger")] == null) { //gravedigger not dead
+				return true;
+			}
+			return false;
+		},
+		title: null,
+		target_auto: null,
+		step_auto: 1,
+		step: function(g) {
+			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var myPID = getPIDn(g, 'Apprentice');
+			var deadGravediggerID = getPIDn(g, 'Gravedigger');
+			for (var pid = 0; pid < g.deathDataList.length; pid++) {
+				if (g.deathDataList[pid] != null && g.deathDataList[pid][0] == g.cycleNum) {
+					stepResult.eventList.push({tag: '$GD', actors: [myPID], targets: [pid],
+						resultCardList: resultCardList, deadGravediggerID: deadGravediggerID});
+				}
+			}
 			return stepResult;
 		},
 	},
@@ -660,14 +738,14 @@ stepDict = {
 			var myPID = getPIDn(g, 'Oracle');
 			var deathLocationQueue = [];
 			for (var key in deathLocationStringDict) {
-				if (key != 77) {
-					deathLocationQueue.push(key);
+				if (key != "77") {
+					deathLocationQueue.push(Number(key));
 				}
 			}
 			shuffle(deathLocationQueue);
 			if (myPID != null) {
 				var priestDeathLocationIndex = deathLocationQueue.pop();
-				stepResult.gameUpdateDict['priestDeathLocationIndex'] = priestDeathLocationIndex;
+				stepResult.gameUpdateDict['private.priestDeathLocationIndex'] = priestDeathLocationIndex;
 				stepResult.eventList.push({tag: '$O', actors: [myPID], priestDeathLocationIndex: [priestDeathLocationIndex]});
 			}
 			stepResult.gameUpdateDict['private.deathLocationQueue'] = deathLocationQueue;
