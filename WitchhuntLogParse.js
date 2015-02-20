@@ -69,8 +69,19 @@ parseLogEvent = function(g, e) {
 			o += '';
 			break;
 		case '$CON1':
-			o += '';
-			break;
+			var actor = "The Conspirator";
+			if (e.hasOwnProperty("actors")) {
+				actor = g.playerNameList[e.actors[0]] + " the Conspirator";
+			}
+			var target = 'the ' + e.spyCount + ' Village Spies';
+			if (e.hasOwnProperty('targets')) {
+				target += ' (' + listPrint(e.targets, g.playerNameList, '') + ')';
+			}
+			if (e.hasOwnProperty('spyRoleIndexListList')) {
+				return actor + " learned that " + target + " are " + listPrint(e.spyRoleIndexListList, masterRoleList, 'the') + ", though not their identities.";
+			} else {
+				return actor + " learned what characters " + target + " are, though not their identities.";
+			}
 		case '$CON2':
 			o += '';
 			break;
@@ -573,4 +584,27 @@ parseLogEvent = function(g, e) {
 			break;
 	}
 	return o;
+}
+
+function listPrint(list, dict, prefix) {
+	if (!prefix) {
+		prefix = '';
+	} else {
+		prefix += ' ';
+	}
+	var output = "";
+	var oxford = '';
+	if (list.length > 2) {
+		oxford = ',';
+	}
+	while (list.length > 2) {
+		output += prefix + dict[list.shift()] + ', ';
+	}
+	if (list.length == 2) {
+		output += prefix + dict[list.shift()] + oxford + ' and ';
+	}
+	if (list.length) {
+		output += prefix + dict[list.shift()];
+	}
+	return output;
 }

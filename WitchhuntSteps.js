@@ -25,6 +25,11 @@ stepDict = {
 				myTeamAssignments.push(null);
 			}
 
+			//TODO - BISHOP HACK
+			if (playerCount < 14) {
+				myRoleListList[0].pop();
+			}
+
 			//make sure all neutral role lists are the correct length
 			var targetRoleTotal = (playerCount - myRoleListList[0].length) * roleCount;
 			for (var i = 1; i < myRoleListList.length; i++) {
@@ -269,47 +274,48 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], updatePermissionsKeyDict: {}, permissionsPool: true};
+			var stepResult = {eventList: [], updateGameDict: {}, updatePermissionsKeyDict: {}};
 
-			var witchIDs = [];
-			var mixedJuniorIDs = [];
-			var warlockIDs = [];
+			var witchPIDs = [];
+			var mixedJuniorPIDs = [];
+			var warlockPIDs = [];
 			for (var pid = 0; pid < g.private.playerTeamList.length; pid++) {
 				switch (g.private.playerTeamList[pid]) {
 					case -1:
-						witchIDs.push(pid);
+						witchPIDs.push(pid);
 						break;
 					case -2:
 					case 2:
-						mixedJuniorIDs.push(pid);
+						mixedJuniorPIDs.push(pid);
 						break;
 					case -3:
-						warlockIDs.push(pid);
+						warlockPIDs.push(pid);
 						break;
 					default:
 						break;
 				}
 			}
 
-			stepResult.eventList.push({tag: '@WR', actors: witchIDs});
+			stepResult.eventList.push({tag: '@WR', actors: witchPIDs});
 			Targets.insert(new Target(g.gid, "coven-master", null, g.private.currentSubchannelDict['c']));
 			Targets.insert(new Target(g.gid, "covenIllusion-master", null, g.private.currentSubchannelDict['c']));
-			if (mixedJuniorIDs.length) {
-				shuffle(mixedJuniorIDs);
-				stepResult.eventList.push({tag: '@JSR1', actors: witchIDs, targets: mixedJuniorIDs});
+			if (mixedJuniorPIDs.length) {
+				shuffle(mixedJuniorPIDs);
+				stepResult.eventList.push({tag: '@JSR1', actors: witchPIDs, targets: mixedJuniorPIDs});
 				Targets.insert(new Target(g.gid, "covenRecruit-master", null, g.private.currentSubchannelDict['c']));
 			}
-			if (warlockIDs.length) {
-				stepResult.eventList.push({tag: '@WLR', actors: witchIDs, targets: warlockIDs});
+			if (warlockPIDs.length) {
+				stepResult.eventList.push({tag: '@WLR', actors: witchPIDs, targets: warlockPIDs});
 			}
 
-			for (var index in witchIDs) {
-				var pid = witchIDs[index];
+			for (var index in witchPIDs) {
+				var pid = witchPIDs[index];
+				stepResult.updateGameDict['private.playerList.' + pid + '.covenJoinTime'] = g.createdAt;
 				stepResult.updatePermissionsKeyDict[pid] = "coven";
 				if (g.userVoting) {
 					Targets.insert(new Target(g.gid, "coven-vote#", pid, g.private.currentSubchannelDict['c']));
 					Targets.insert(new Target(g.gid, "covenIllusion-vote#", pid, g.private.currentSubchannelDict['c']));
-					if (mixedJuniorIDs.length) {
+					if (mixedJuniorPIDs.length) {
 						Targets.insert(new Target(g.gid, "covenRecruit-vote#", null, g.private.currentSubchannelDict['c']));
 					}
 				}
@@ -318,96 +324,157 @@ stepDict = {
 		},
 	},
 	'meet-Juniors': {
-		skip: function(g) {return (g.private.playerTeamList.indexOf(-2) == -1)},
+		skip: function(g) {
+			var teamCount = 0;
+			for (var index in g.private.playerTeamList) {
+				if (g.private.playerTeamList[index] == -2) {
+					teamCount += 1;
+				}
+			}
+			return (teamCount < 2);
+		},
 		title: null,
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: []};
-			var groupIDs = [];
+			var stepResult = {eventList: [], updatePermissionsKeyDict: {}};
+			var groupPIDs = [];
 			for (var pid = 0; pid < g.private.playerTeamList.length; pid++) {
 				if (g.private.playerTeamList[pid] == -2) {
-					groupIDs.push(pid)
+					groupPIDs.push(pid);
+					stepResult.updatePermissionsKeyDict[pid] = "juniors";
 				}
 			}
-			stepResult.eventList.push({tag: '@JR', actors: groupIDs});
+			stepResult.eventList.push({tag: '@JR', actors: groupPIDs});
 			return stepResult;
 		},
 	},
 	'meet-Traitors': {
-		skip: function(g) {return (g.private.playerTeamList.indexOf(-3) == -1)},
+		skip: function(g) {
+			var teamCount = 0;
+			for (var index in g.private.playerTeamList) {
+				if (g.private.playerTeamList[index] == -3) {
+					teamCount += 1;
+				}
+			}
+			return (teamCount < 2);
+		},
 		title: null,
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: []};
-			var groupIDs = [];
+			var stepResult = {eventList: [], updatePermissionsKeyDict: {}};
+			var groupPIDs = [];
 			for (var pid = 0; pid < g.private.playerTeamList.length; pid++) {
 				if (g.private.playerTeamList[pid] == -3) {
-					groupIDs.push(pid)
+					groupPIDs.push(pid);
+					stepResult.updatePermissionsKeyDict[pid] = "traitors";
 				}
 			}
-			stepResult.eventList.push({tag: '@TR', actors: groupIDs});
+			stepResult.eventList.push({tag: '@TR', actors: groupPIDs});
 			return stepResult;
 		},
 	},
 	'meet-Spies': {
-		skip: function(g) {return (g.private.playerTeamList.indexOf(2) == -1)},
+		skip: function(g) {
+			var teamCount = 0;
+			for (var index in g.private.playerTeamList) {
+				if (g.private.playerTeamList[index] == 2) {
+					teamCount += 1;
+				}
+			}
+			return (teamCount < 2);
+		},
 		title: null,
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: []};
-			var groupIDs = [];
+			var stepResult = {eventList: [], updatePermissionsKeyDict: {}};
+			var groupPIDs = [];
 			for (var pid = 0; pid < g.private.playerTeamList.length; pid++) {
 				if (g.private.playerTeamList[pid] == 2) {
-					groupIDs.push(pid)
+					groupPIDs.push(pid);
+					stepResult.updatePermissionsKeyDict[pid] = "spies";
 				}
 			}
-			stepResult.eventList.push({tag: '@SR', actors: groupIDs});
+			stepResult.eventList.push({tag: '@SR', actors: groupPIDs});
 			return stepResult;
 		},
 	},
 	'meet-Knights': {
-		skip: function(g) {return (g.private.playerTeamList.indexOf(3) == -1)},
+		skip: function(g) {
+			var teamCount = 0;
+			for (var index in g.private.playerTeamList) {
+				if (g.private.playerTeamList[index] == 3) {
+					teamCount += 1;
+				}
+			}
+			return (teamCount < 2);
+		},
 		title: null,
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: []};
-			var groupIDs = [];
+			var stepResult = {eventList: [], updatePermissionsKeyDict: {}};
+			var groupPIDs = [];
 			for (var pid = 0; pid < g.private.playerTeamList.length; pid++) {
 				if (g.private.playerTeamList[pid] == 3) {
-					groupIDs.push(pid)
+					groupPIDs.push(pid);
+					stepResult.updatePermissionsKeyDict[pid] = "knights";
 				}
 			}
-			stepResult.eventList.push({tag: '@KGR', actors: groupIDs});
+			stepResult.eventList.push({tag: '@KGR', actors: groupPIDs});
 			return stepResult;
 		},
 	},
 	'meet-Lovers': {
-		skip: function(g) {return (g.private.playerTeamList.indexOf(41) == -1)},
+		skip: function(g) {
+			var teamCount = 0;
+			for (var index in g.private.playerTeamList) {
+				if (g.private.playerTeamList[index] == 41) {
+					teamCount += 1;
+				}
+			}
+			return (teamCount < 2);
+		},
 		title: null,
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: []};
+			var stepResult = {eventList: [], updatePermissionsKeyDict: {}};
 			for (var i = 1; i < 4; i++) {
-				var groupIDs = [];
+				var groupPIDs = [];
 				for (var pid = 0; pid < g.private.playerTeamList.length; pid++) {
 					if (g.private.playerTeamList[pid] == 40 + i) {
-						groupIDs.push(pid)
+						groupPIDs.push(pid);
+						stepResult.updatePermissionsKeyDict[pid] = "lovers" + i;
 					}
 				}
 				if (groupIDs.length == 2) {
-					stepResult.eventList.push({tag: '@LR', actors: [groupIDs[0]], targets: [groupIDs[1]]});
+					stepResult.eventList.push({tag: '@LR', actors: [groupPIDs[0]], targets: [groupPIDs[1]]});
 				}
 			}
 			return stepResult;
 		},
 	},
 	'meet-Travelers': {
-		skip: function(g) {return true},
+		skip: function(g) {
+			var teamCount = 0;
+			var travelerRoleIDs = [];
+			for (var i = 0; i < masterRoleList; i++) {
+				if (masterRoleList[i].slice(0,9) == "Traveling") {
+					travelerRoleIDs.push(i);
+				}
+			}
+			for (var pid in g.private.playerRoleListList) {
+				for (var roleIndex in g.private.playerRoleListList[pid]) {
+					if (g.private.playerTeamList[pid][roleIndex] in travelerRoleIDs) {
+						teamCount += 1;
+					}					
+				}
+			}
+			return (teamCount < 2);
+		},
 		title: null,
 		target_auto: null,
 		step_auto: 1,
@@ -796,7 +863,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = {eventList: [], gameUpdateDict: {}, permissionsPool: true};
 			var myPID = getPIDn(g, 'Oracle');
 			var deathLocationQueue = [];
 			for (var key in deathLocationStringDict) {
@@ -1048,19 +1115,29 @@ stepDict = {
 					return stepResult;
 				},
 			},
-	'Conspirator': {skip: function(g) {return true},
-				title: null,
-				role_index: masterRoleList.indexOf('Conspirator'),
-				target_auto: null,
-				step_auto: 1,
-				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
-					var pid = getPID(g, masterRoleList.indexOf('Conspirator'));
-					var t = Targets.findOne({gid: g.gid, tag: 'Conspirator'});
-					stepResult.eventList.push({tag: '', actors: [], targets: []});
-					return stepResult;
-				},
-			},
+	'Conspirator': {
+		skip: null,
+		title: null,
+		role_index: masterRoleList.indexOf('Conspirator'),
+		target_auto: null,
+		step_auto: 1,
+		step: function(g) {
+			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var myPID = getPIDn(g, 'Conspirator');
+			var groupPIDs = [];
+			var spyRoleIndexListList = [];
+			for (var pid = 0; pid < g.private.playerTeamList.length; pid++) {
+				if (g.private.playerTeamList[pid] == 2) {
+					groupPIDs.push(pid);
+					spyRoleIndexListList.push(g.private.playerRoleListList[pid]);
+				}
+			}
+			shuffle(spyRoleIndexListList);
+			stepResult.eventList.push({tag: '$CON1', actors: [myPID], targets: groupPIDs,
+									   spyRoleIndexListList: spyRoleIndexListList, spyCount: groupPIDs.length});
+			return stepResult;
+		},
+	},
 	'Con Artist': {skip: function(g) {return true},
 				title: null,
 				role_index: masterRoleList.indexOf('Con Artist'),

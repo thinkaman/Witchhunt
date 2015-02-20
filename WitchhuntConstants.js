@@ -258,10 +258,11 @@ roleCategoryList[masterRoleList.indexOf('Copycat')] = 			masterCategoryList.inde
 roleCategoryList[masterRoleList.indexOf('Admiral')] = 			masterCategoryList.indexOf('Hybrid');
 roleCategoryList[masterRoleList.indexOf('Vampire Hunter')] = 	masterCategoryList.indexOf('Legend');
 
-masterTeamBreakpointDict = 	{"-1": [3,6,9,14,19], //do not include holies or peasants!
+masterTeamBreakpointDict = 	{"-1": [3,6,9,20], //do not include holies or peasants!
+							 "-2": [14,17,23],
+							  "2": [14,17,23],
 							};
 
-masterHolyRoleList = 		[0,12,22,34,46];
 masterMandatoryRoleList = 	[0,1,4,7];
 masterDisabledRoleList =	[12,13,14,15,16,17,18,19,20,21,22,23,24];
 masterRoleDependencyDict =  { 8: [1,7], //nesting not allowed
@@ -286,9 +287,6 @@ masterExpansionDependencyDict =  {25: [0],
 								 };
 
 masterExpansionRequirementDict = {1: [34]}; //king required in KC games; check at startGame
-
-masterTeamBreakpointDict = {"-1": [3,6,9,14,19], //do not include holies or peasants!
-							};
 
 deathLocationStringDict = { 0: "Across from the Alehouse",
 						    1: "Beneath a Bridge",
