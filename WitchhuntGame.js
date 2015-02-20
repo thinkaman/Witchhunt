@@ -2,7 +2,7 @@ Game = function(gameName, moderatorID, moderatorName) {
 	//***PUBLIC VARS***
 	this.gid = Games.find().count();
 	this.createdAt = new Date();
-	this.gameName = null;
+	this.gameName = gameName;
 	if (gameName == null) {
 		this.gameName = "Game #" + this.gid;
 	} else {
@@ -21,12 +21,10 @@ Game = function(gameName, moderatorID, moderatorName) {
 	this.aliveNum = null;
 	this.cycleNum = 0;
 	this.currentPhase = "Signup";
-	this.deathDataList = []; //initialize to null for every player; null if alive, [CYCLE_NUM, PHASE, TIME] if dead
+	this.deathDataList = []; //initialize to null for every player; null if alive,[CYCLE_NUM, PHASE, TIME] if dead
 	this.bombHolder = null;
 	this.hunterNight = null;
 
-	this.currentTargetPrompt = null;
-	this.lastStepResult = null;
 	this.auto = 2; //auto-advances though all 
 	this.debugRandomTarget = false; //if true, any null targets will be replaced with a random non-null legal target
 
@@ -34,35 +32,36 @@ Game = function(gameName, moderatorID, moderatorName) {
 
 	//***PRIVATE VARS***
 	this.private = {};
-	this.private.playerList; //list of player objects
+	this.private.playerList = null; //list of player objects
 	//control flow vars
 	this.private.substep = 0;
 	this.private.stepList = stepScheduleDict[this.currentPhase].slice(0);
+	this.private.currentTargetPrompt = null;
 	this.private.undoStepList = [];
 	this.private.interruptStepList = [];
 	//secret game state vars (inter-phase)
 	this.private.playerTeamList = [];
 	this.private.playerRoleListList = [];
+	this.private.extraLivesList = [];
 	this.private.priestDeathLocationIndex = null; //used for Oracle
+	this.private.deathLocationQueue = [];		  //used for Oracle
 	this.private.angelCount = 0;
 	this.private.demonCount = 0;
 	this.private.demonTutorialStep = -1; //-1 - nothing, 0 - curse/protect only, 1 - solo only, 2 - double, 3-full
 	this.private.angelTutorialStep = -1; //-1 - nothing, 0 - curse/protect only, 1 - solo only, 2 - double, 3-full
 	this.private.doubleProtectUsed = false; //DEPRICATED: use a dedicated, second target instead (maybe a dummy)
 	//permission data
-	this.private.groupPermissionListDict = {	'-1': ['t-1'],  //witches
-												'-2': ['t-2'],  //unjoined juniors
-												'-3': ['t-3'],  //unjoined traitors
-												   2: ['t2'],   //spies
-												   3: ['t3'],   //knights
-												  41: [],		//lover pair A										
-												  42: [],		//lover pair B
-												  43: [],		//lover pair C
-											'angels': ['xa'],	//angels
-											'demons': ['xd'],	//demons
-											'angelsDelayed': [],//angels time-delayed
-											'demonsDelayed': [],//demons time-delayed
-											};
+	this.private.currentSubchannelDict = {k: 0,
+										  c: 0,
+										  j: 0,
+										  t: 0,
+										  s: 0,
+										  g: 0,
+										  l1: 0,
+										  l2: 0,
+										  l3: 0,
+										};
+
 	//temp vars (intra-phase inter-step)
 	this.private.tempTarget; //used for assassin
 	this.private.angelMessage = null; //temp var used to save angel messages between states
@@ -77,13 +76,24 @@ Game = function(gameName, moderatorID, moderatorName) {
 	this.private.deadRole = false; //shows if the current step is tied to a dead role
 	this.private.currentStepLength = null; //used for setting timer
 
-	//personal vars (pulled from palyer accounts, NEVER made public
+	//personal vars (pulled from player accounts, NEVER made public
 	this.userAccounts = [];
-	
+
+	var keyList =  ['g-1', 'g-2', 'g-3', 'g2', 'g3', 'g41', 'g42', 'g43',
+					'angels', 'demons', 'angelsDelayed', 'demonsDelayed'];
+	for (var index in keyList) {
+		var initialList = [];
+		if (keyList[index] == "angels") {
+			initialList.push("xa");
+		} else if (keyList[index] == "demons") {
+			initialList.push("xd");
+		}
+		PermissionsLists.insert(new PermissionsList(this.gid, keyList[index], initialList));
+	}
 	return this;
 }
 
-Player = function(id, username, team, subteam, roleList) {
+Player = function(id, username, playerIndex, team, subteam, roleList) {
 	//All player vars are implicitly private
 	this.userId = id;
 	this.username = username;
@@ -92,170 +102,218 @@ Player = function(id, username, team, subteam, roleList) {
 	this.roleList = roleList; //simple index list--might be ultimately superfulous with Target entries
 	this.covenJoinTime = null;
 	this.courtJoinTime = null;
-	this.covenMinPermissionTime = null;
-	this.covenMaxPermissionTime = new Date();
-	this.covenMaxPermissionTime.setDate(this.covenMaxPermissionTime.getDate() + 1000); //1000 days in future
-	this.courtMinPermissionTime = null;
-	this.courtMaxPermissionTime = new Date();
-	this.courtMaxPermissionTime.setDate(this.covenMaxPermissionTime.getDate() + 1000); //1000 days in future
-	this.permissionsList = [];
-	this.permissionGroup = null;
+	this.permissionsKey = playerIndex;
 	return this;
 }
 
-packLogEvents = function(gid, eventList) {
-	for (var index in eventList) {
-		packLogEvent(gid, eventList[index]);
+Target = function(gid, tag, pid, subchannel) {
+	this.gid = gid;
+	for (var key in targetTemplateDict[tag]) {
+		var value = targetTemplateDict[tag][key];
+		if (key == "tag") {
+			value = value.replace('#', '' + pid);
+		} else if (typeof(value) == typeof("")) {
+			value = value.replace('#', '' + pid).replace('S', '' + subchannel);
+		} else if (value != null && typeof(value) == typeof([]) && value.length && typeof(value[0]) == typeof("")) {
+			for (var index in value) {
+				value[index] = value[index].replace('#', '' + pid).replace('S', '' + subchannel);		
+			}
+		}
+		this[key] = value;
 	}
+	return this;
 }
 
-packLogEvent = function(gid, argsDict) {
+getLegalTargetList = function(g, t) {
+	myList = [77];
+	switch(t.style) {
+		case 2: //unique living player IDs + explicit None (88)
+			myList.push(88);
+		case 1: //unique living player IDs
+			for (var pid = 0; pid < g.deathDataList.length; pid++) {
+				if (g.deathDataList[pid] == null) {
+					myList.push(pid);
+				}
+			}
+			break;
+		case 3: //unique dead player IDs
+			for (var pid = 0; pid < g.deathDataList.length; pid++) {
+				if (g.deathDataList[pid] != null) {
+					myList.push(pid);
+				}
+			}
+			break;
+		case 4: //unique character indexes
+			for (var pid in g.private.playerRoleListList) {
+				for (var index in g.private.playerRoleListList[pid]) {
+					myList.push(g.private.playerRoleListList[pid][index]);
+				}
+			}
+			break;
+		case 5: //unique team indexes (null defaults to 0)
+			for (var pid in g.private.playerList) {
+				var team = g.private.playerList[pid].team;
+				if (myList.indexOf(team) == -1) {
+					myList.push(team);
+				}
+			}
+			break;
+		case 6: //bool (null defaults to false)
+			myList.push(1);
+			break;
+		case 7: //odd/even/null
+			myList.push(0);
+			myList.push(1);
+			break;
+		case 8: //unique warlock ritual indexes
+			myList.push(0);
+			myList.push(1);
+			myList.push(2);
+			myList.push(3);
+			myList.push(4);
+			myList.push(5);
+			myList.push(6);
+		default:
+			break;
+	}
+	return myList;
+}
+
+PermissionsList = function(gid, key, initialList) {
+	this.gid = gid;
+	this.key = key;
+	this.pl = initialList;
+}
+
+packLogEvent = function(g, permissionsLists, argsDict) {
 	//Look up permissions on each sub-event
+	var gid = g.gid;
 	var myDate = new Date();
-	var eid = Math.random().toString(36).slice(2);
+	var eid = Math.random().toString(36).slice(2); //random event id
 	var myPermissionsDict = logPermissionsDict[argsDict['tag']];
 	var tagPermissionsList = null;
 	if (argsDict['tag'] in myPermissionsDict) {
 		 tagPermissionsList = myPermissionsDict[argsDict['tag']]; //global permissions attached to the tag
 	}
+	var subeventList = [];
 	for (var key in argsDict) {
 		var mySubevent = {gid: gid, t: myDate, eid: eid, n: key, v: argsDict[key], p: []}
 		if (key in myPermissionsDict) {
-			var myPermissionsList = myPermissionsDict[key];	//stage 1 - raw values
-			var myPermissionsList2 = [];					//stage 2 - swapped templates
-			var myPermissionsList3 = [];					//stage 3 - no temp formats
-			//make sure any permissiosn attached to the event tag itself are included in ALL subevents
+			var myPermissionsList = myPermissionsDict[key];
+			//make sure any permissions attached to the event tag itself are included in ALL subevents
 			for (var index in tagPermissionsList) {
 				if (!(tagPermissionsList[index] in myPermissionsList)) {
 					myPermissionsList.push(tagPermissionsList[index]);
 				}
 			}
 			//now that we have our full list of permissions, let's swap values into any templates
-			for (var index in myPermissionsList) {
-				var p = myPermissionsList[index];
-				if (p.slice(-1) == 'A') { //apply permission for each actor
-					for (var pid in argsDict['actors']) {
-						myPermissionsList2.push(p.slice(0,-1) + pid);
-					}
-				} else if (p.slice(-1) == 'T') { //apply permission for each target
-					for (var pid in argsDict['targets']) {
-						myPermissionsList2.push(p.slice(0,-1) + pid);
-					}
-				} else if (p.slice(-1) == 'V') { //apply permission for subevent value
-					myPermissionsList2.push(p.slice(0,-1) + argsDict[key]);
-				} else { //apply permission normally
-					myPermissionsList2.push(p);
-				}
-			}			
-			//finally, perform some conversions from temp formats
-			for (var index in myPermissionsList2) {
-				var p = myPermissionsList2[index];
-				if (p.slice(0,2) == 'cp') {
-					var pid = parseInt(p.slice(2));
-					myPermissionsList3.push('c' + this.private.playerList[pid].roleList[0]);
-				} else if (p == 'x') {
-					if (this.private.angelCount) {
-						myPermissionsList3.push('xa');
-					}
-					if (this.private.demonCount) {
-						myPermissionsList3.push('xd');
-					}
-				} else if (p == 'tdx') {
-					if (this.private.angelCount) {
-						myPermissionsList3.push('tdxa');
-					}
-					if (this.private.demonCount) {
-						myPermissionsList3.push('tdxd');
-					}
-				} else {
-					myPermissionsList3.push(p);
-				}
+			myPermissionsList = processPermissionTemplates(g, myPermissionsList, argsDict, argsDict[key])		
+			mySubevent['p'] = myPermissionsList;
+		}
+		subeventList.push(mySubevent);
+	}
+	return subeventList;
+};
+
+addToDictSet = function(dict, key, newElements) {
+	if (!(key in dict)) {
+		dict[key] = [];
+	}
+	for (var index in newElements) {
+		if (dict[key].indexOf(newElements[index]) == -1) {
+			dict[key].push(newElements[index]);
+		}
+	}
+}
+
+getLogEventPermissionsUpdates = function(g, argsDict) {
+	var myPermissionsDict = logPermissionsDict[argsDict['tag']];
+	if (myPermissionsDict == undefined) {
+		throw new Meteor.error("bad-tag", argsDict);
+	}
+	var permissionUpdateDict = {};
+	if ('updateActors' in myPermissionsDict) {
+		for (var index in argsDict['actors']) {
+			pid = argsDict['actors'][index];
+			addToDictSet(permissionUpdateDict, g.private.playerList[pid].permissionsKey,
+				processPermissionTemplates(g, myPermissionsDict['updateActors'], argsDict, null));
+		}
+	}
+	if ('updateTargets' in myPermissionsDict) {
+		//update each of the players listed in t with all the permissions in argsDict['updateActors']
+		for (var index in argsDict['targets']) {
+			pid = argsDict['targets'][index];
+			addToDictSet(permissionUpdateDict, g.private.playerList[pid].permissionsKey,
+				processPermissionTemplates(g, myPermissionsDict['updateTargets'], argsDict, null));
+		}
+	}
+	if ('updateDead' in myPermissionsDict) {
+		addToDictSet(permissionUpdateDict, "angels", processPermissionTemplates(g, myPermissionsDict['updateDead'], argsDict, null));
+		addToDictSet(permissionUpdateDict, "demons", processPermissionTemplates(g, myPermissionsDict['updateDead'], argsDict, null));
+	}
+	if ('updateDeadDelayed' in myPermissionsDict) {
+		addToDictSet(permissionUpdateDict, "angelsDelayed", processPermissionTemplates(g, myPermissionsDict['updateDeadDelayed'], argsDict, null));
+		addToDictSet(permissionUpdateDict, "demonsDelayed", processPermissionTemplates(g, myPermissionsDict['updateDeadDelayed'], argsDict, null));
+	}
+	if ('updateAll' in myPermissionsDict) {
+		for (var pid in g.private.playerList) {
+			if (!(key == "angelsDelayed" || key == "angelsDelayed")) {
+				addToDictSet(permissionUpdateDict, g.private.playerList[pid].permissionsKey,
+					processPermissionTemplates(g, myPermissionsDict['updateDeadDelayed'], argsDict, null));
 			}
-			mySubevent['p'] = myPermissionsList3;
-		}
-		Log.insert(mySubevent)
-	}
-	//now let's add any updated permissions
-	if ('updateActors' in argsDict) {
-		//TODO
-	}
-	if ('updateTargets' in argsDict) {
-		//TODO
-	}
-	if ('updateDead' in argsDict) {
-		//TODO
-	}
-	if ('updateDeadDelayed' in argsDict) {
-		//TODO
-	}
-	if ('updateAll' in argsDict) {
-		//TODO
-	}
-
-};
-
-unpackLogEvents = function(myLogQuery) {
-	
-};
-
-updatePlayerPermissions = function(g, pid, newPermissionsList) {
-	var player = g.playerList[pid];
-	var myPermissionsList = null;
-	if (player.permissionGroup != null) {								//special permissions group
-		myPermissionsList = g.groupPermissionListDict[player.permissionGroup];
-	} else {															//default
-		myPermissionsList = player.permissionsList;
-	}
-	for (var p in newPermissionsList) {
-		if (!(p in myPermissionsList)) {
-			myPermissionsList.push(p);
 		}
 	}
-};
+	return permissionUpdateDict;
+}
 
-changePlayerPermissionGroup = function(g, pid) {
-	var player = g.playerList[pid];
-	var oldPermissionsList = null;
-	if (player.permissionGroup != null) {								//special permissions group
-		oldPermissionsList = g.groupPermissionListDict[player.permissionGroup];
-	} else {															//default
-		oldPermissionsList = player.permissionsList;
-	}
-	if (g.deathDataList[pid] != null) {
-		if (player.team < 0) {											//demon
-			player.permissionGroup = 'demons';
-		} else {														//angel
-			player.permissionGroup = 'demons';
-		}
-	} else if (player.covenMinPermissionTime != null) {					//coven
-		player.permissionGroup = '-1';
-	} else if (player.team == 4) {										//lovers
-		player.permissionGroup = '4' + player.subteam;
-	} else if (player.team in [-2,-3,2,3]) {							//other team groups
-		player.permissionGroup = player.team;
-	} else {															//default
-		player.permissionGroup = null;
-	}
-	g.updatePlayerPermissions(pid, oldPermissionsList);
-};
-
-resolveTimeDelay = function(g) {
-	//permissions
-	for (var p in g.groupPermissionListDict['angelsDelayed']) {
-		if (!(p in g.groupPermissionListDict['angels'])) {
-			g.groupPermissionListDict['angels'].push(p);
+processPermissionTemplates = function(g, permissionList, argsDict, value) {
+	var tempResults = [];
+	for (var index in permissionList) {
+		var p = permissionList[index];
+		if (p.slice(-1) == 'A') { //apply permission for each actor
+			for (var index2 in argsDict['actors']) {
+				var pid = argsDict['actors']
+				tempResults.push(p.slice(0,-1) + pid);
+			}
+		} else if (p.slice(-1) == 'T') { //apply permission for each target
+			for (var index2 in argsDict['targets']) {						
+				var pid = argsDict['targets']
+				tempResults.push(p.slice(0,-1) + pid);
+			}
+		} else if (p.slice(-1) == 'V') { //apply permission for subevent value
+			tempResults.push(p.slice(0,-1) + value);
+		} else if (p.slice(-1) == 'S') { //apply permission for subevent value
+			tempResults.push(p.slice(0,-1) + g.private.currentSubchannelDict[p.slice(-2,-1)]);
+		} else { //apply permission normally
+			tempResults.push(p);
 		}
 	}
-	for (var p in g.groupPermissionListDict['demonsDelayed']) {
-		if (!(p in g.groupPermissionListDict['demons'])) {
-			g.groupPermissionListDict['demons'].push(p);
+	var results = [];
+	for (var index in tempResults) {
+		var p = tempResults[index];
+		if (p.slice(0,2) == 'cp') {
+			var pid = parseInt(p.slice(2));
+			results.push('c' + g.private.playerList[pid].roleList[0]);
+		} else if (p == 'x') {
+			if (g.private.angelCount) {
+				results.push('xa');
+			}
+			if (g.private.demonCount) {
+				results.push('xd');
+			}
+		} else if (p == 'tdx') {
+			if (g.private.angelCount) {
+				results.push('tdxa');
+			}
+			if (g.private.demonCount) {
+				results.push('tdxd');
+			}
+		} else {
+			results.push(p);
 		}
 	}
-	//logs
-	Log.update({gid: g.gid, p: 'td'},   {$pull: {p:   'td'}}, {multi: true});
-	Log.update({gid: g.gid, p: 'tdxa'}, {$set:  {"p.$": 'xa'}}, {multi: true});
-	Log.update({gid: g.gid, p: 'tdxd'}, {$set:  {"p.$": 'xd'}}, {multi: true});
-};
+	return results;
+}
 
 saveNewMessage = function(gid, pid, channel, messageValue) {
 	var myPermissionsList = null;
@@ -283,3 +341,11 @@ saveNewMessage = function(gid, pid, channel, messageValue) {
 					 'p': myPermissionsList};
 
 };
+
+clearAll = function() {
+	Games.remove({});
+	Targets.remove({});
+	Log.remove({});
+	Messages.remove({});
+	PermissionsLists.remove({});
+}
