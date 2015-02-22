@@ -31,15 +31,14 @@
 			<button class="leave-game">Leave</button>
 		{{/if}}
 		{{#if is_mod}}
-			{{#if can_add}}
+			{{#if is_signup}}
 				<form class="add-player">
 					<input type="text" name="text" placeholder="Add username"/>
 				</form>
+				<button class="debug-populate-game">Debug Populate</button>
+				<button class="setup-game-base">Base Set</button>
+				<button class="setup-game-halftime">Halftime</button>
 			{{/if}}
-			<button class="debug-populate-game">Debug Populate</button>
-			<button class="setup-game-base">Base Set</button>
-			<button class="setup-game-halftime">Halftime</button>
-			<button class="step-game">Step</button>
 			<button class="advance-game">Advance</button>
 		{{/if}}
 	</li>

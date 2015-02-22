@@ -222,7 +222,7 @@ if (Meteor.isClient) {
 					this.currentPhase == "Signup" && 
 					this.playerIDList.indexOf(Meteor.userId()) != -1);
 		},
-		"can_add": function() {
+		"is_signup": function() {
 			return(this.moderatorID == Meteor.userId() && 
 					this.currentPhase == "Signup");
 		}
