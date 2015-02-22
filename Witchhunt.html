@@ -7,8 +7,12 @@
 	{{> loginButtons}}
 	<ul>
 		{{#if is_cpi}}
-			{{> new_game}}
-		{{/if}}
+			<button id="create-game">Create Game</button>
+			<button id="clear-all">Clear All Games</button>
+			<form class="sandbox">
+				<input type="text" name="text" placeholder="user sandbox"/>
+			</form>
+			{{/if}}
 		{{#each game_dir}}
 			{{> game_dir_entry}}
 		{{/each}}
@@ -27,17 +31,18 @@
 			<button class="leave-game">Leave</button>
 		{{/if}}
 		{{#if is_mod}}
+			{{#if can_add}}
+				<form class="add-player">
+					<input type="text" name="text" placeholder="Add username"/>
+				</form>
+			{{/if}}
 			<button class="debug-populate-game">Debug Populate</button>
-			<button class="setup-game">Setup</button>
+			<button class="setup-game-base">Base Set</button>
+			<button class="setup-game-halftime">Halftime</button>
 			<button class="step-game">Step</button>
 			<button class="advance-game">Advance</button>
 		{{/if}}
 	</li>
-</template>
-
-<template name="new_game">
-	<button id="create-game">Create Game</button>
-	<button id="clear-all">Clear All Games</button>
 </template>
 
 <template name="game_panel">

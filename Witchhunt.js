@@ -10,46 +10,77 @@ if (Meteor.isClient) {
 	Session.setDefault("permissionsKey", null);
 	Session.setDefault("permissionsList", null);
 	Session.setDefault("myLog", []); //unpacked log events for current gid
+	Session.setDefault("sandboxUsername", null); //override username for permissions
 
 	Accounts.ui.config({
-		passwordSignupFields: 'USERNAME_AND_EMAIL',
+		passwordSignupFields: 'USERNAME_ONLY',
 	});
 
+	Meteor.subscribe('games_dir');
+
 	Tracker.autorun(function () {
-		Meteor.subscribe('games_dir');
-		Meteor.subscribe('game_public', Session.get("gid"));
-		//Meteor.subscribe('game_finished', Session.get("gid"));
-		Meteor.subscribe('game_player', Session.get("gid"));
-		Meteor.subscribe('game_mod', Session.get("gid"));
-		Meteor.subscribe('game_mod_log', Session.get("gid"));
+		if (!Session.equals("gid", null)) {
+			var g = Games.findOne({gid: Session.get("gid")});
+			if (g != undefined) {
+				Meteor.subscribe('game_public', Session.get("gid"));
+				//Meteor.subscribe('game_finished', Session.get("gid"));
+				if (Meteor.user()) {
+					if (!Session.equals("pid", null)) { //player or sandbox
+						if (Session.equals("sandboxUsername", null)) {
+							Meteor.subscribe('game_player', Session.get("gid"), Meteor.user().username);
+						} else {
+							Meteor.subscribe('game_player', Session.get("gid"), Session.get("sandboxUsername"));
+						}
+					} else if (g.moderatorID == Meteor.userId()) {
+							Meteor.subscribe('game_mod', Session.get("gid"));
+							Meteor.subscribe('game_mod_log', Session.get("gid"));
+					}					
+				}
+			}
+		}
 	});
 	Tracker.autorun(function () {
-		Meteor.subscribe('game_player_permissions', Session.get("gid"), Session.get("permissionsKey"));
+		if (Meteor.user()) {
+			if (Session.equals("sandboxUsername", null)) {
+				Meteor.subscribe('game_player_permissions', Session.get("gid"), Meteor.user().username, Session.get("permissionsKey"));
+			} else {
+				Meteor.subscribe('game_player_permissions', Session.get("gid"), Session.get("sandboxUsername"), Session.get("permissionsKey"));
+			}
+		}
 	});
-	Tracker.autorun(function () {
-		Meteor.subscribe('game_player_data', Session.get("gid"), Session.get("permissionsList"));
+	Tracker.autorun(function () {if (Meteor.user()) {
+		if (Session.equals("sandboxUsername", null)) {
+				Meteor.subscribe('game_player_data', Session.get("gid"), Meteor.user().username, Session.get("permissionsList"));
+			} else {
+				Meteor.subscribe('game_player_data', Session.get("gid"), Session.get("sandboxUsername"), Session.get("permissionsList"));
+			}
+		}
 	});
 	Tracker.autorun(function () { //compute local reactive vars
 		var gid = Session.get("gid");
+		var sandboxUsername = Session.get("sandboxUsername");
 		if (gid != null) {
 			var g = Games.findOne({gid: gid});
 			if (g == undefined) {
-				//Session.set("gid", null);
-				//Session.set("pid", null);
-				//Session.set("permissionsKey", null);
-				//Session.set("permissionsList", null);
-				//Session.set("myLog", []);
+				Session.set("gid", null);
+				Session.set("pid", null);
+				Session.set("permissionsKey", null);
+				Session.set("permissionsList", null);
+				Session.set("myLog", []);
 			} else {
 				var pid = g.playerIDList.indexOf(Meteor.userId());
+				if (sandboxUsername) {
+					pid = g.playerNameList.indexOf(sandboxUsername);
+				}
 				if (pid == -1) {
-					//Session.set("pid", null);
-					//Session.set("permissionsKey", null);
-					//Session.set("permissionsList", null);
+					Session.set("pid", null);
+					Session.set("permissionsKey", null);
+					Session.set("permissionsList", null);
 				} else {
 					Session.set("pid", pid);
 					if (g.private == undefined || g.private.playerList == undefined) {
-						//Session.set("permissionsKey", null);
-						//Session.set("permissionsList", null);
+						Session.set("permissionsKey", null);
+						Session.set("permissionsList", null);
 					} else {
 						var myIndex = 0;
 						if (g.private.playerList.length > 1) {
@@ -61,7 +92,7 @@ if (Meteor.isClient) {
 						if (myPL != null) {
 							Session.set("permissionsList", myPL.pl);
 						} else {
-							//Session.set("permissionsList", null);
+							Session.set("permissionsList", null);
 						}
 					}
 				}
@@ -91,6 +122,17 @@ if (Meteor.isClient) {
 		var logs = Log.find().fetch();
 		for (var i = 0; logs[i] != undefined; i++) { //we assume you only have the logs for one game at a time
 			var subevent = logs[i];
+			if (subevent.n == 'tag') {
+				myLog[subevent.eid] = {tag: subevent.v, etime: subevent.t};
+				if (subevent.hasOwnProperty('subindex')) {
+					myLog[subevent.eid]['subindex'] = subevent.subindex;
+				} else {
+					myLog[subevent.eid]['subindex'] = 9999;
+				}
+			}
+		}
+		for (var i = 0; logs[i] != undefined; i++) { //we assume you only have the logs for one game at a time
+			var subevent = logs[i];
 			if (!(subevent.eid in myLog)) {
 				myLog[subevent.eid] = {etime: subevent.t};
 			}
@@ -100,7 +142,10 @@ if (Meteor.isClient) {
 		for (var key in myLog){
 			myLogList.push(myLog[key]);
 		}
-		myLogList.sort(function(a,b){return a.t-b.t});
+		myLogList.sort(function(a,b) {
+			if (a.etime === b.etime) return a.subindex - b.subindex;
+			return a.etime - b.etime;
+		});
 		Session.set("myLog", myLogList);
 	});
 
@@ -135,10 +180,22 @@ if (Meteor.isClient) {
 		"click #clear-all": function(event) {
 			Meteor.call("clearAll");
 		},
+		"submit .sandbox": function(event) {
+			event.preventDefault();
+			var username = event.target.text.value;
+			if (!username) {
+				Session.set("sandboxUsername", null);
+			} else {
+				Session.set("sandboxUsername", username);
+			}
+		},
 	});
 
 	Template.game_dir_entry.helpers({
 		"description": function() {
+			if ((!this) || (!this.playerIDList)) {
+				return null;
+			}
 			var myDescription = this.gameName;
 			if (this.moderatorName == null) {
 				myDescription += " (auto)"
@@ -150,14 +207,25 @@ if (Meteor.isClient) {
 		},
 
 		"is_mod": function() {
-			return (this.moderatorID != null && this.moderatorID == Meteor.userId());
+			return (this.moderatorID != null && 
+					this.moderatorID == Meteor.userId());
 		},
 		"can_join": function() {
-			return (Meteor.userId() != null && this.currentPhase == "Signup" && this.playerIDList.indexOf(Meteor.userId()) == -1 && this.moderatorID != Meteor.userId());
+			return (Meteor.userId() != null && 
+					this.currentPhase == "Signup" && 
+					this.playerIDList.length < this.maxPlayerCount && 
+					this.playerIDList.indexOf(Meteor.userId()) == -1 && 
+					this.moderatorID != Meteor.userId());
 		},
 		"can_leave": function() {
-			return (Meteor.userId() != null && this.currentPhase == "Signup" && this.playerIDList.indexOf(Meteor.userId()) != -1);
+			return (Meteor.userId() != null && 
+					this.currentPhase == "Signup" && 
+					this.playerIDList.indexOf(Meteor.userId()) != -1);
 		},
+		"can_add": function() {
+			return(this.moderatorID == Meteor.userId() && 
+					this.currentPhase == "Signup");
+		}
 	});
 
 	Template.game_dir_entry.events({
@@ -170,11 +238,25 @@ if (Meteor.isClient) {
 		"click .leave-game": function(event) {
 			Meteor.call("leaveGame", this.gid, null);
 		},
+		"submit .add-player": function(event) {
+			event.preventDefault();
+			var name = event.target.text.value;
+			if (!name) {
+				//nothing
+			} else if (this.playerNameList.indexOf(name) == -1) {
+				Meteor.call("joinGame", this.gid, name);
+			} else {
+				Meteor.call("leaveGame", this.gid, name);
+			}
+		},
 		"click .debug-populate-game": function(event) {
 			Meteor.call("debugPopulateGame", this.gid);
 		},
-		"click .setup-game": function(event) {
-			//Meteor.call("leaveGame", {gid: this.gid, overrideUsername: null});
+		"click .setup-game-base": function(event) {
+			Meteor.call("setupGame", this.gid, {roleList: baseSetDefaultRoleList, maxPlayerCount: 15, expansionList: []});
+		},
+		"click .setup-game-halftime": function(event) {
+			Meteor.call("setupGame", this.gid, {roleList: halftimeDefaultRoleList, maxPlayerCount: 25, expansionList: [0]});
 		},
 		"click .step-game": function(event) {
 			Meteor.call("step", this.gid, false);
@@ -228,13 +310,15 @@ if (Meteor.isClient) {
 			return Targets.find({gid: this.gid, locked: 0});
 		},
 		"log_events": function() {
-			return Session.get("myLog").sort(function(a,b) {return a.etime > b.etime});
+			return Session.get("myLog");
 		},
 	});
 
 	Template.player.helpers({
 		"is_mod": function() {
-			return (Template.parentData(1).moderatorID != null && Template.parentData(1).moderatorID == Meteor.userId());
+			return (Session.equals("sandboxUsername", null) && 
+					Template.parentData(1).moderatorID != null && 
+					Template.parentData(1).moderatorID == Meteor.userId());
 		},
 		"player_readout": function() {
 			return this.username + ': \t' + masterRoleList[this.roleList[0]] + ' \t' + masterTeamDict[this.team];
@@ -280,7 +364,6 @@ if (Meteor.isClient) {
 	Template.target_selector.events({
 		"change .target-selector": function(event) {
 			var t = Template.parentData(1);
-			console.log(t, event.target.value, event.target.id, t.active);
 			var myIndex = event.target.id;
 			var myNewValue = Number(event.target.value);
 
@@ -401,53 +484,61 @@ if (Meteor.isServer) {
 		return [Games.find({gid: gid}, {fields: {private: 1}}), //private info for won games
 				Log.find({gid: gid}, {fields: {p: 0}})];
 	});
-	Meteor.publish("game_player", function(gid) {
+	Meteor.publish("game_player", function(gid, username) {
 		//gets the Player object for a given player, including their permissionsKey
-		//console.log("game_player", this.userId, gid);
-		return Games.find({gid: gid, 'private.playerList.userId': this.userId},
-						  {fields: {'private.playerList.$': 1}});
+		var cursor = Games.find({gid: gid, 'private.playerList.username': username},
+						  {fields: {moderatorID: 1, 'private.playerList.$': 1}});
+		if (!cursor.count()) {
+			return cursor;
+		}
+		var g = cursor.fetch()[0];
+		if (g.private.playerList[0].userId != this.userId) {
+			if (g.moderatorID != this.userId) {
+				return [];
+			}
+		}
+		return cursor;
 	});	
-	Meteor.publish("game_player_permissions", function(gid, key) {
+	Meteor.publish("game_player_permissions", function(gid, username, key) {
 		//gets the permissions list for a given player, after verifying their key is correct
 		if (gid == null || key == null) {
 			return [];
 		}
-		var g = Games.findOne({gid: gid, 'private.playerList.userId': this.userId},
-						      {fields: {playerIDList: 1, 'private.playerList.$': 1}});
+		var g = Games.findOne({gid: gid, 'private.playerList.username': username},
+						      {fields: {moderatorID: 1, 'private.playerList.$': 1}});
 		if (g == undefined) {
 			return [];
 		}
-		var pid = g.playerIDList.indexOf(this.userId);
-		if (pid == -1) {
-			return [];
-		}
-		if (g.private.playerList[0].permissionsKey != key) {
-			return [];
+		if (g.moderatorID != this.userId) { //if we're not the mod, we need to check the key
+			if (g.private.playerList[0].userId != this.userId || g.private.playerList[0].permissionsKey != key) {
+				return [];
+			}
 		}
 		return PermissionsLists.find({gid: gid, key: key});
 	});
-	Meteor.publish("game_player_data", function(gid, permissionsList) {
+	Meteor.publish("game_player_data", function(gid, username, permissionsList) {
 		//finally, verifies the permission list of a given player is correct
 		if (gid == null || permissionsList == null) {
 			return [];
 		}
-		var g = Games.findOne({gid: gid, 'private.playerList.userId': this.userId},
-						      {fields: {playerIDList: 1, 'private.playerList.$': 1}});
+		var g = Games.findOne({gid: gid, 'private.playerList.username': username},
+						      {fields: {moderatorID: 1, 'private.playerList.$': 1}});
 		if (g == undefined) {
 			return [];
 		}
-		var pid = g.playerIDList.indexOf(this.userId);
-		if (pid == -1) {
-			return [];
-		}
-		var key = g.private.playerList[0].permissionsKey;		
-		var correctPermissionsList = PermissionsLists.findOne({gid: gid, key: key}).pl;
-		for (var index in permissionsList) {
-			if (correctPermissionsList.indexOf(permissionsList[index]) == -1) {
+		if (g.moderatorID != this.userId) { //if we're not the mod, we need to check the permissionsList
+			if (g.private.playerList[0].userId != this.userId) {
 				return [];
 			}
+			var key = g.private.playerList[0].permissionsKey;		
+			var correctPermissionsList = PermissionsLists.findOne({gid: gid, key: key}).pl;
+			for (var index in permissionsList) {
+				if (correctPermissionsList.indexOf(permissionsList[index]) == -1) {
+					return [];
+				}
+			}
 		}
-		permissionsList.push('p' + pid);
+		permissionsList.push('p' + g.private.playerList[0].playerIndex);
 		return [Log.find({gid: gid, p: {$in: permissionsList}}, {fields: {p: 0}}),
 				Targets.find({gid: gid, p: {$in: permissionsList}}, {fields: {p: 0}})];
 	});

@@ -47,7 +47,7 @@ masterExpansionList = ["Halftime",
 					   "Love & War"]
 
 masterTeamDict = {   0: "Village Peasant",
-				     1: "Holy Villager",
+				     1: "Village Clergy",
 				     2: "Village Spy",
 				     3: "Village Knight",
 				     4: "Village Lover",
@@ -258,7 +258,10 @@ roleCategoryList[masterRoleList.indexOf('Copycat')] = 			masterCategoryList.inde
 roleCategoryList[masterRoleList.indexOf('Admiral')] = 			masterCategoryList.indexOf('Hybrid');
 roleCategoryList[masterRoleList.indexOf('Vampire Hunter')] = 	masterCategoryList.indexOf('Legend');
 
-masterTeamBreakpointDict = 	{"-1": [3,6,9,20], //do not include holies or peasants!
+baseSetTeamBreakpointDict = {"-1": [3,6,9,14], //do not include holies or peasants!
+							};
+
+halftimeTeamBreakpointDict ={"-1": [3,6,9,20], //do not include holies or peasants!
 							 "-2": [14,17,23],
 							  "2": [14,17,23],
 							};
@@ -287,6 +290,9 @@ masterExpansionDependencyDict =  {25: [0],
 								 };
 
 masterExpansionRequirementDict = {1: [34]}; //king required in KC games; check at startGame
+
+baseSetDefaultRoleList = [[0],[1,2,3,4,5,6,7,8,9,10,11,18,14,13,16]];
+halftimeDefaultRoleList = [[0,22],[1,2,3,4,5,6,7,8,9,10,11,20,23,24,25,26,27,28,29,30,31,32,33]];
 
 deathLocationStringDict = { 0: "Across from the Alehouse",
 						    1: "Beneath a Bridge",

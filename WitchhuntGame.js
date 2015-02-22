@@ -12,8 +12,9 @@ Game = function(gameName, moderatorID, moderatorName) {
 	this.moderatorName = moderatorName;
 	this.playerIDList = []; //length serves as maxPlayerCount
 	this.playerNameList = [];
-	this.maxPlayerCount = 25;
-	this.roleListList = [[0,22],[1,2,3,4,5,6,7,8,9,10,11,20,23,24,25,26,27,28,29,30,31,32,33]]; //length serves as roleCount
+	this.maxPlayerCount = 15;
+	this.roleListList = baseSetDefaultRoleList; //length serves as roleCount
+	this.teamCountDict = {};
 	this.expansionList = [];
 	this.winner = null;
 
@@ -108,6 +109,7 @@ Player = function(id, username, playerIndex, team, subteam, roleList) {
 	this.covenJoinTime = null;
 	this.courtJoinTime = null;
 	this.permissionsKey = String(playerIndex);
+	this.playerIndex = playerIndex;
 	return this;
 }
 
@@ -173,9 +175,9 @@ getLegalTargetList = function(g, t) {
 			}
 			break;
 		case 4: //unique character indexes
-			for (var pid in g.private.playerRoleListList) {
-				for (var index in g.private.playerRoleListList[pid]) {
-					var roleIndex = g.private.playerRoleListList[pid][index];
+			for (var x in g.roleListList) {
+				for (var index in g.roleListList[x]) {
+					var roleIndex = g.roleListList[x][index];
 					if (t.hasOwnProperty("whitelist")) {
 						if (t.whitelist.indexOf(roleIndex) != -1) {
 							myList.push(roleIndex);
@@ -191,11 +193,8 @@ getLegalTargetList = function(g, t) {
 			}
 			break;
 		case 5: //unique team indexes (null defaults to 0)
-			for (var pid in g.private.playerList) {
-				var team = g.private.playerList[pid].team;
-				if (myList.indexOf(team) == -1) {
-					myList.push(team);
-				}
+			for (var key in g.teamCountDict) {
+				myList.push(team);
 			}
 			break;
 		case 6: //bool (null defaults to false)
@@ -237,20 +236,25 @@ packLogEvent = function(g, permissionsLists, argsDict) {
 	}
 	var subeventList = [];
 	for (var key in argsDict) {
-		var mySubevent = {gid: gid, t: myDate, eid: eid, n: key, v: argsDict[key], p: []}
-		if (key in myPermissionsDict) {
-			var myPermissionsList = myPermissionsDict[key];
-			//make sure any permissions attached to the event tag itself are included in ALL subevents
-			for (var index in tagPermissionsList) {
-				if (!(tagPermissionsList[index] in myPermissionsList)) {
-					myPermissionsList.push(tagPermissionsList[index]);
-				}
+		if (key != 'subindex') {
+			var mySubevent = {gid: gid, t: myDate, eid: eid, n: key, v: argsDict[key], p: []}			
+			if (key == 'tag' && 'subindex' in argsDict) {
+				mySubevent['subindex'] = argsDict['subindex'];
 			}
-			//now that we have our full list of permissions, let's swap values into any templates
-			myPermissionsList = processPermissionTemplates(g, myPermissionsList, argsDict, argsDict[key])		
-			mySubevent['p'] = myPermissionsList;
+			if (key in myPermissionsDict) {
+				var myPermissionsList = myPermissionsDict[key];
+				//make sure any permissions attached to the event tag itself are included in ALL subevents
+				for (var index in tagPermissionsList) {
+					if (!(tagPermissionsList[index] in myPermissionsList)) {
+						myPermissionsList.push(tagPermissionsList[index]);
+					}
+				}
+				//now that we have our full list of permissions, let's swap values into any templates
+				myPermissionsList = processPermissionTemplates(g, myPermissionsList, argsDict, argsDict[key])		
+				mySubevent['p'] = myPermissionsList;
+			}
+			subeventList.push(mySubevent);
 		}
-		subeventList.push(mySubevent);
 	}
 	return subeventList;
 };

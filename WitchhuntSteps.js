@@ -1,3 +1,16 @@
+StepResult = function() {
+	this.changeTargetDict = {}; //dict[Target tag] = newTargets
+	this.updateTargetTupleList = []; //[[{search field} {update field}]]
+	this.updateGameDict = {}; //dict[Game object param] = value to update to
+	this.subchannelUpdateDict = {}; //dict[channelKey to increment] = list of pids to grant access to new suchannel
+	this.updatePermissionsKeyDict = {}; //dict[pid] = new permissionsKey
+	this.eventList = []; //list of events
+	this.permissionsUpdateDict = {}; //dict[pid] = list of permissions to add 
+	this.permissionsPool = false; //check for bilateral permissions conversions
+	this.resolvePermissionsTimeDelay = false; //end of night conversion of temp permissions
+	this.messagePostList = []; //list of Messages to post
+}
+
 stepDict = {
 
 	deal: {
@@ -6,15 +19,16 @@ stepDict = {
 		target_auto: null,
 		step_auto: 3,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			//initialize deal vars
 			var playerCount = g.playerIDList.length;
 			if (playerCount < MIN_GAME_SIZE) {
 				throw new Meteor.Error("not-enough-players-to-deal");
 			}
-			stepResult.gameUpdateDict['maxPlayerCount'] = playerCount;
+			stepResult.updateGameDict['maxPlayerCount'] = playerCount;
 			var roleCount = g.roleListList.length - 1
 			var myRoleListList = g.roleListList.slice();
+			var myTeamCountDict = {0: 0, 1: 0};
 			var myTeamList = []; //does not include holy
 			var needsCards = [];	//doubles as draft order		
 			var myRoleAssignments = [];
@@ -23,11 +37,6 @@ stepDict = {
 				needsCards.push(i);
 				myRoleAssignments.push([]);
 				myTeamAssignments.push(null);
-			}
-
-			//TODO - BISHOP HACK
-			if (playerCount < 14) {
-				myRoleListList[0].pop();
 			}
 
 			//make sure all neutral role lists are the correct length
@@ -41,15 +50,22 @@ stepDict = {
 			}
 
 			//decide team counts
-			for (var key in masterTeamBreakpointDict) {
-				for (var i = 0; i < masterTeamBreakpointDict[key].length; i++) {
-					if (masterTeamBreakpointDict[key][i] <= playerCount) {
+			var myTeamBreakpointDict = baseSetTeamBreakpointDict;
+			if (g.expansionList.indexOf(masterExpansionList.indexOf("Halftime")) != 1) {
+				myTeamBreakpointDict = halftimeTeamBreakpointDict;
+			}
+
+			for (var key in myTeamBreakpointDict) {
+				for (var i = 0; i < myTeamBreakpointDict[key].length; i++) {
+					myTeamCountDict[key] = myTeamBreakpointDict[key][i];
+					if (myTeamBreakpointDict[key][i] <= playerCount) {
 						myTeamList.push(Number(key));
 					}
 				}
 			}
 			while (myTeamList.length + myRoleListList[0].length < playerCount) {
-				myTeamList.push(0);
+				myTeamList.push(0);				
+				myTeamCountDict[0] += 0;
 			}
 
 			//shuffle everything
@@ -64,14 +80,15 @@ stepDict = {
 				var pid = needsCards.shift();
 				myRoleAssignments[pid] = [myRoleListList[0].shift()];
 				myTeamAssignments[pid] = 1;
+				myTeamCountDict[1] += 0;
 			}
 
 			//randomly assign remaining players highest priority draft pick and a random team
 			while (needsCards.length) {
 				var pid = needsCards.shift();
 				//convert prefList to PLL for this game's roleListList
-				var myPrefList = g.userAccounts[pid].prefList;
 				var myPLL = [[]];
+				var myPrefList = g.userAccounts[pid].prefList;
 				for (var i = 1; i < g.roleListList.length; i++) {
 					myPLL.push([]);
 					for (var j = 0; j < myPrefList.length; j++) {
@@ -147,8 +164,9 @@ stepDict = {
 				}
 			}
 
-			stepResult.gameUpdateDict['private.playerRoleListList'] = myRoleAssignments;
-			stepResult.gameUpdateDict['private.playerTeamList'] = myTeamAssignments;
+			stepResult.updateGameDict['teamCountDict'] = myTeamCountDict;
+			stepResult.updateGameDict['private.playerRoleListList'] = myRoleAssignments;
+			stepResult.updateGameDict['private.playerTeamList'] = myTeamAssignments;
 
 			return stepResult;
 		}
@@ -159,7 +177,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			return stepResult;
 		},
 	},
@@ -169,9 +187,9 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}, updateTargetTupleList: []};
+			var stepResult = new StepResult();
 			//generate and store events, prepare game.player objects, create Targets and PermissionsLists
-			stepResult.eventList.push({tag:"@START"});
+			stepResult.eventList.push({tag:"@START", subindex: -999});
 			Targets.insert(new Target(g.gid, "lynch-master", null, null));
 			var playerList = [];
 			var extraLivesList = [];
@@ -205,7 +223,7 @@ stepDict = {
 				}
 				var p = new Player(g.playerIDList[pid], g.playerNameList[pid], pid, myTeam, mySubteam, myRoleList);
 				playerList.push(p);
-				var myLogEvent = {tag: "@A", actors: [pid], teamIndex: myTeamRaw};
+				var myLogEvent = {tag: "@A", subindex: pid, actors: [pid], teamIndex: myTeamRaw};
 				for (var i = 0; i < myRoleList.length; i++) {
 					myLogEvent["roleIndex" + (i+1)] = myRoleList[i];
 				}
@@ -243,9 +261,9 @@ stepDict = {
 			PermissionsLists.insert(new PermissionsList(g.gid, 'angelsDelayed', []));
 			PermissionsLists.insert(new PermissionsList(g.gid, 'demonsDelayed', []));
 			
-			stepResult.gameUpdateDict['private.playerList'] = playerList;
-			stepResult.gameUpdateDict['private.extraLivesList'] = extraLivesList;
-			stepResult.gameUpdateDict['deathDataList'] = deathDataList;
+			stepResult.updateGameDict['private.playerList'] = playerList;
+			stepResult.updateGameDict['private.extraLivesList'] = extraLivesList;
+			stepResult.updateGameDict['deathDataList'] = deathDataList;
 			return stepResult;
 		},
 	},
@@ -255,7 +273,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {changeTargetDict: []};
+			var stepResult = new StepResult();
 			var targets = Targets.find({gid: g.gid, locked: 0}).fetch();
 			for (var index in targets) {
 				var t = targets[index];
@@ -274,8 +292,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], updateGameDict: {}, updatePermissionsKeyDict: {}};
-
+			var stepResult = new StepResult();
 			var witchPIDs = [];
 			var mixedJuniorPIDs = [];
 			var warlockPIDs = [];
@@ -337,7 +354,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], updatePermissionsKeyDict: {}};
+			var stepResult = new StepResult();
 			var groupPIDs = [];
 			for (var pid = 0; pid < g.private.playerTeamList.length; pid++) {
 				if (g.private.playerTeamList[pid] == -2) {
@@ -363,7 +380,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], updatePermissionsKeyDict: {}};
+			var stepResult = new StepResult();
 			var groupPIDs = [];
 			for (var pid = 0; pid < g.private.playerTeamList.length; pid++) {
 				if (g.private.playerTeamList[pid] == -3) {
@@ -389,7 +406,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], updatePermissionsKeyDict: {}};
+			var stepResult = new StepResult();
 			var groupPIDs = [];
 			for (var pid = 0; pid < g.private.playerTeamList.length; pid++) {
 				if (g.private.playerTeamList[pid] == 2) {
@@ -415,7 +432,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], updatePermissionsKeyDict: {}};
+			var stepResult = new StepResult();
 			var groupPIDs = [];
 			for (var pid = 0; pid < g.private.playerTeamList.length; pid++) {
 				if (g.private.playerTeamList[pid] == 3) {
@@ -441,7 +458,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], updatePermissionsKeyDict: {}};
+			var stepResult = new StepResult();
 			for (var i = 1; i < 4; i++) {
 				var groupPIDs = [];
 				for (var pid = 0; pid < g.private.playerTeamList.length; pid++) {
@@ -479,7 +496,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			stepResult.eventList.push({tag: '@TVR', actors: []});
 			return stepResult;
 		},
@@ -490,21 +507,21 @@ stepDict = {
 		target_auto: null,
 		step_auto: 5,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}, updateTargetTupleList: []};
+			var stepResult = new StepResult();
 			//stepResult.eventList.push({tag: '', actors: [], targets: []});
 			if (g.userVoting) {
 				stepResult.updateTargetTupleList.push([{gid: g.gid, tag: {$regex: /lynch-/}}, {$set: {locked: 0}}]);
 			}
-			stepResult.gameUpdateDict['lastLynchTarget'] = null;
-			stepResult.gameUpdateDict['private.tempTarget'] = null;
-			stepResult.gameUpdateDict['private.checkedFanatic'] = false;
-			stepResult.gameUpdateDict['private.angelMessage'] = null;
-			stepResult.gameUpdateDict['private.angelProtectList'] = [];
-			stepResult.gameUpdateDict['private.shenanigansTargetList'] = [];
-			stepResult.gameUpdateDict['private.curseTargetList'] = [];
-			stepResult.gameUpdateDict['private.nightProtectList'] = [];
-			stepResult.gameUpdateDict['private.nightKillList'] = [];
-			stepResult.gameUpdateDict['private.nightSurvivalList'] = [];
+			stepResult.updateGameDict['lastLynchTarget'] = null;
+			stepResult.updateGameDict['private.tempTarget'] = null;
+			stepResult.updateGameDict['private.checkedFanatic'] = false;
+			stepResult.updateGameDict['private.angelMessage'] = null;
+			stepResult.updateGameDict['private.angelProtectList'] = [];
+			stepResult.updateGameDict['private.shenanigansTargetList'] = [];
+			stepResult.updateGameDict['private.curseTargetList'] = [];
+			stepResult.updateGameDict['private.nightProtectList'] = [];
+			stepResult.updateGameDict['private.nightKillList'] = [];
+			stepResult.updateGameDict['private.nightSurvivalList'] = [];
 			return stepResult;
 		},
 	},
@@ -514,7 +531,7 @@ stepDict = {
 		target_auto: 5,
 		step_auto: 5,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			var t = Targets.findOne({gid: g.gid, tag: "lynch-master"});
 			var lynchTarget = [77];
 			if (t.t[0] != 77) {
@@ -533,7 +550,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			stepResult.eventList.push({tag: '', actors: [], targets: []});
 			return stepResult;
 		},
@@ -544,7 +561,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			stepResult.eventList.push({tag: '', actors: [], targets: []});
 			return stepResult;
 		},
@@ -555,7 +572,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			if (g.userVoting) {
 				stepResult.updateTargetTupleList.push([{gid: g.gid, tag: {$regex: /lynch-/}}, {$set: {locked: 1}}]);
 			}
@@ -570,7 +587,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			stepResult.eventList.push({tag: '', actors: [], targets: []});
 			return stepResult;
 		},
@@ -581,7 +598,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			stepResult.eventList.push({tag: '', actors: [], targets: []});
 			return stepResult;
 		},
@@ -592,7 +609,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			stepResult.eventList.push({tag: '', actors: [], targets: []});
 			return stepResult;
 		},
@@ -603,7 +620,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			stepResult.eventList.push({tag: '', actors: [], targets: []});
 			return stepResult;
 		},
@@ -614,7 +631,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			stepResult.eventList.push({tag: '', actors: [], targets: []});
 			return stepResult;
 		},
@@ -625,7 +642,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			stepResult.eventList.push({tag: '', actors: [], targets: []});
 			return stepResult;
 		},
@@ -637,7 +654,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			var t = Targets.findOne({gid: g.gid, tag: "Priest"});			
 			var myPID = t.a;
 			stepResult.eventList.push({tag: '', actors: [myPID], targets: []});
@@ -651,7 +668,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			var t = Targets.findOne({gid: g.gid, tag: "Judge"});
 			var myPID = t.a;
 			stepResult.eventList.push({tag: '', actors: [myPID], targets: []});
@@ -665,7 +682,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			var t = Targets.findOne({gid: g.gid, tag: "Dirty Old Bastard"});
 			var myPID = t.a;
 			stepResult.eventList.push({tag: '', actors: [myPID], targets: []});
@@ -679,7 +696,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			var t = Targets.findOne({gid: g.gid, tag: "Hunter"});
 			var myPID = t.a;
 			stepResult.eventList.push({tag: '$H', actors: [myPID], targets: []});
@@ -693,9 +710,9 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			var myPID = getPIDn(g, 'Survivalist');
-			stepResult.gameUpdateDict["private.extraLivesList." + myPID] = 1;
+			stepResult.updateGameDict["private.extraLivesList." + myPID] = 1;
 			stepResult.eventList.push({tag: '$S', actors: [myPID]});
 			return stepResult;
 		},
@@ -707,12 +724,12 @@ stepDict = {
 		target_auto: 3,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}, updateTargetTupleList: []};
+			var stepResult = new StepResult();
 			var t = Targets.findOne({gid: g.gid, tag: "Gambler"});
 			var myPID = t.a;
 			var selectionInt = t.t[0];
 			stepResult.updateTargetTupleList.push([{gid: g.gid, tag: "Gambler"}, {$set: {locked: 1}}]);
-			stepResult.gameUpdateDict['private.gamblerChoice'] = selectionInt;
+			stepResult.updateGameDict['private.gamblerChoice'] = selectionInt;
 			stepResult.eventList.push({tag: '$G1', actors: [myPID], selectionInt: selectionInt});
 			return stepResult;
 		},
@@ -724,10 +741,10 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			var myPID = getPIDn(g, 'Fanatic');
 			var selfExtraLifeCount = g.private.extraLivesList[myPID];
-			stepResult.gameUpdateDict["private.extraLivesList." + myPID] = selfExtraLifeCount;
+			stepResult.updateGameDict["private.extraLivesList." + myPID] = selfExtraLifeCount;
 			stepResult.eventList.push({tag: '$F', actors: [myPID], selfExtraLifeCount: selfExtraLifeCount});
 			return stepResult;
 		},
@@ -745,10 +762,10 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			var myPID = getPIDn(g, 'Fanatic');
 			var selfExtraLifeCount = g.private.extraLivesList[myPID];
-			stepResult.gameUpdateDict["private.extraLivesList." + myPID] = selfExtraLifeCount;
+			stepResult.updateGameDict["private.extraLivesList." + myPID] = selfExtraLifeCount;
 			stepResult.eventList.push({tag: '$F2', actors: [myPID], selfExtraLifeCount: selfExtraLifeCount});
 			return stepResult;
 		},
@@ -766,7 +783,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			var myPID = getPIDn(g, 'Gravedigger');
 			if (g.deathDataList[myPID] != null) { //dead gravedigger
 				for (var pid = 0; pid < g.deathDataList.length; pid++) {
@@ -792,7 +809,7 @@ stepDict = {
 		target_auto: 3,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}, updateTargetTupleList: []};
+			var stepResult = new StepResult();
 			var t = Targets.findOne({gid: g.gid, tag: "Apprentice"});
 			var myPID = t.a;
 			var tPID = 77;
@@ -804,7 +821,7 @@ stepDict = {
 				Targets.insert(new Target(g.gid, "Apprentice-J", myPID, null));
 			}
 			stepResult.updateTargetTupleList.push([{gid: g.gid, tag: "Apprentice"}, {$set: {locked: 1}}]);
-			stepResult.gameUpdateDict['private.appenticeChoice'] = selectedRoleIndex;
+			stepResult.updateGameDict['private.appenticeChoice'] = selectedRoleIndex;
 			stepResult.eventList.push({tag: '$A', actors: [myPID], targets: [tPID], selectedRoleIndex: selectedRoleIndex});
 			return stepResult;
 		},
@@ -815,7 +832,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			var t = Targets.findOne({gid: g.gid, tag: "Apprentice-J"});
 			var myPID = t.a;
 			stepResult.eventList.push({tag: '', actors: [myPID], targets: []});
@@ -835,7 +852,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			var myPID = getPIDn(g, 'Apprentice');
 			var deadGravediggerID = getPIDn(g, 'Gravedigger');
 			if (g.deathDataList[myPID] != null) { //dead apprentice
@@ -863,7 +880,9 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}, permissionsPool: true};
+			var stepResult = new StepResult();
+			stepResult.permissionsPool = true;
+
 			var myPID = getPIDn(g, 'Oracle');
 			var deathLocationQueue = [];
 			for (var key in deathLocationStringDict) {
@@ -874,10 +893,10 @@ stepDict = {
 			shuffle(deathLocationQueue);
 			if (myPID != null) {
 				var priestDeathLocationIndex = deathLocationQueue.pop();
-				stepResult.gameUpdateDict['private.priestDeathLocationIndex'] = priestDeathLocationIndex;
+				stepResult.updateGameDict['private.priestDeathLocationIndex'] = priestDeathLocationIndex;
 				stepResult.eventList.push({tag: '$O', actors: [myPID], priestDeathLocationIndex: [priestDeathLocationIndex]});
 			}
-			stepResult.gameUpdateDict['private.deathLocationQueue'] = deathLocationQueue;
+			stepResult.updateGameDict['private.deathLocationQueue'] = deathLocationQueue;
 			return stepResult;
 		},
 	},
@@ -888,7 +907,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			var myPID = getPIDn(g, 'Peeping Tom');
 			var offensiveList = [];
 			for (var pid = 0; pid < g.private.playerTeamList.length; pid++) {
@@ -910,7 +929,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			var myPID = getPIDn(g, 'Peeping Tim');
 			var defensiveList = [];
 			for (var pid = 0; pid < g.private.playerTeamList.length; pid++) {
@@ -932,7 +951,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: []};
+			var stepResult = new StepResult();
 			var myPID = getPIDn(g, 'Acolyte');
 			var priest_pid = getPID(g, masterRoleList.indexOf('Priest'));
 			stepResult.eventList.push({tag: '$ACO', actors: [myPID], targets: [priest_pid]});
@@ -945,7 +964,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Loose Cannon'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Loose Cannon'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -958,7 +977,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Bomber'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Bomber'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -970,7 +989,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
 					return stepResult;
 				},
@@ -981,7 +1000,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Assassin'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Assassin'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -993,7 +1012,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
 					return stepResult;
 				},
@@ -1004,7 +1023,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Emissary'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Emissary'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1017,7 +1036,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Benevolent Old Dame'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Benevolent Old Dame'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1030,7 +1049,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Nurse'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Nurse'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1043,7 +1062,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Spiritualist'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Spiritualist'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1056,7 +1075,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Inquisitor'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Inquisitor'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1069,7 +1088,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Detective'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Detective'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1082,7 +1101,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Bishop'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Bishop'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1095,7 +1114,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Daredevil'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Daredevil'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1108,7 +1127,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Magician'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Magician'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1122,7 +1141,7 @@ stepDict = {
 		target_auto: null,
 		step_auto: 1,
 		step: function(g) {
-			var stepResult = {eventList: [], gameUpdateDict: {}};
+			var stepResult = new StepResult();
 			var myPID = getPIDn(g, 'Conspirator');
 			var groupPIDs = [];
 			var spyRoleIndexListList = [];
@@ -1144,7 +1163,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Con Artist'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Con Artist'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1157,7 +1176,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Knife Thrower'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Knife Thrower'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1170,7 +1189,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Investigator'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Investigator'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1183,7 +1202,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Innkeeper'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Innkeeper'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1196,7 +1215,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Butcher'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Butcher'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1209,7 +1228,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Alchemist'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Alchemist'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1221,7 +1240,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
 					return stepResult;
 				},
@@ -1232,7 +1251,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Entertainer'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Entertainer'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1245,7 +1264,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Clown'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Clown'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1258,7 +1277,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('King'));
 					var t = Targets.findOne({gid: g.gid, tag: 'King'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1271,7 +1290,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Queen'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Queen'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1284,7 +1303,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Undertaker'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Undertaker'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1297,7 +1316,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Squire'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Squire'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1310,7 +1329,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Jester'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Jester'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1323,7 +1342,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Count'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Count'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1336,7 +1355,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Vizier'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Vizier'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1349,7 +1368,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Vigilante'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Vigilante'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1362,7 +1381,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Traveling Medic'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Traveling Medic'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1375,7 +1394,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Traveling Mercenary'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Traveling Mercenary'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1388,7 +1407,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Traveling Mystic'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Traveling Mystic'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1401,7 +1420,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Traveling Minstrel'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Traveling Minstrel'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1414,7 +1433,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Templar'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Templar'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1427,7 +1446,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Lookout'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Lookout'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1440,7 +1459,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Captain'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Captain'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1453,7 +1472,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Matchmaker'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Matchmaker'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1466,7 +1485,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Ninja'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Ninja'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1479,7 +1498,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Seducer'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Seducer'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1491,7 +1510,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
 					return stepResult;
 				},
@@ -1502,7 +1521,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Rogue'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Rogue'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1515,7 +1534,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Blacksmith'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Blacksmith'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1528,7 +1547,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Engineer'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Engineer'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1541,7 +1560,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Executioner'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Executioner'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1554,7 +1573,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Admiral'));
 					var t = Targets.findOne({gid: g.gid, tag: 'Admiral'});
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -1567,7 +1586,7 @@ stepDict = {
 				target_auto: null,
 				step_auto: 1,
 				step: function(g) {
-					var stepResult = {eventList: [], gameUpdateDict: {}};
+					var stepResult = new StepResult();
 					var pid = getPID(g, masterRoleList.indexOf('Vampire Hunter'));
 					stepResult.eventList.push({tag: '', actors: [], targets: []});
 					return stepResult;
@@ -1643,4 +1662,28 @@ function tallyVotes(cursor, requireTrueMajority) {
 		resultsList.push(77);
 	}
 	return resultsList;
+}
+
+function kill(stepResult, g, pid, killClass) {
+
+
+	return stepResult;
+}
+
+function die(stepResult, g, pid) {
+
+	
+	return stepResult;
+}
+
+function onDeath(stepResult, g, pid) {
+
+	
+	return stepResult;
+}
+
+function onSurvival(stepResult, g, pid) {
+
+	
+	return stepResult;
 }
