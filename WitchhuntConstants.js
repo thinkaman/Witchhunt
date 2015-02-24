@@ -56,7 +56,7 @@ masterTeamDict = {   0: "Village Peasant",
 				  '-3': "Traitor",
 				  '-4': "Warlock",
 				  };
-				  
+
 abbrevTeamDict = {   0: "V",
 				     1: "H",
 				     2: "S",
