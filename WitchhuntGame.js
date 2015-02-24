@@ -119,14 +119,14 @@ Target = function(gid, tag, pid, subchannel) {
 		var value = targetTemplateDict[tag][key];
 		if (key == "tag") {
 			value = value.replace('#', '' + pid);
-		} else if (typeof(value) == typeof("")) {	
+		} else if (typeof(value) == typeof("")) {
 			value = value.replace('#', '' + pid).replace('S', '' + subchannel);
 		} else if (value != null && typeof(value) == typeof([]) && value.length && typeof(value[0]) == typeof("")) {
 			for (var index in value) {
 				if (value[index] == '#') {
 					value[index] = pid;
 				} else {
-					value[index] = value[index].replace('#', '' + pid).replace('S', '' + subchannel);		
+					value[index] = value[index].replace('#', '' + pid).replace('S', '' + subchannel);
 				}
 			}
 		}
@@ -237,7 +237,7 @@ packLogEvent = function(g, permissionsLists, argsDict) {
 	var subeventList = [];
 	for (var key in argsDict) {
 		if (key != 'subindex') {
-			var mySubevent = {gid: gid, t: myDate, eid: eid, n: key, v: argsDict[key], p: []}			
+			var mySubevent = {gid: gid, t: myDate, eid: eid, n: key, v: argsDict[key], p: []}
 			if (key == 'tag' && 'subindex' in argsDict) {
 				mySubevent['subindex'] = argsDict['subindex'];
 			}
@@ -250,7 +250,7 @@ packLogEvent = function(g, permissionsLists, argsDict) {
 					}
 				}
 				//now that we have our full list of permissions, let's swap values into any templates
-				myPermissionsList = processPermissionTemplates(g, myPermissionsList, argsDict, argsDict[key])		
+				myPermissionsList = processPermissionTemplates(g, myPermissionsList, argsDict, argsDict[key])
 				mySubevent['p'] = myPermissionsList;
 			}
 			subeventList.push(mySubevent);
@@ -320,7 +320,7 @@ processPermissionTemplates = function(g, permissionList, argsDict, value) {
 				tempResults.push(p.slice(0,-1) + pid);
 			}
 		} else if (p.slice(-1) == 'T') { //apply permission for each target
-			for (var index2 in argsDict['targets']) {						
+			for (var index2 in argsDict['targets']) {
 				var pid = argsDict['targets'];
 				if (pid != 77) {
 					tempResults.push(p.slice(0,-1) + pid);

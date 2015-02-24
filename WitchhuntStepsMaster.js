@@ -15,7 +15,7 @@ stepScheduleDict = {"Signup":		[],
 									 "Gambler",
 									 "Apprentice"],
 					"Day":			["dayStart", "victoryCheckA", "debugRandomTargets", "lynch-master", "victoryCheckB", "bombPassCheck"],
-					"Day-Insert":   ["Judge", "Apprentice-J"], //dummy, only for reference 
+					"Day-Insert":   ["Judge", "Apprentice-J"], //dummy, only for reference
 					"Night":		["nightStart", "debugRandomTargets", "Gravedigger", "Apprentice-G", "Fanatic-2",
 									 "angelDemonMasterMultiplex",
 									 "witchMultiplex",

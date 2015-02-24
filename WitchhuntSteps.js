@@ -5,7 +5,7 @@ StepResult = function() {
 	this.subchannelUpdateDict = {}; //dict[channelKey to increment] = list of pids to grant access to new suchannel
 	this.updatePermissionsKeyDict = {}; //dict[pid] = new permissionsKey
 	this.eventList = []; //list of events
-	this.permissionsUpdateDict = {}; //dict[pid] = list of permissions to add 
+	this.permissionsUpdateDict = {}; //dict[pid] = list of permissions to add
 	this.permissionsPool = false; //check for bilateral permissions conversions
 	this.resolvePermissionsTimeDelay = false; //end of night conversion of temp permissions
 	this.messagePostList = []; //list of Messages to post
@@ -30,7 +30,7 @@ stepDict = {
 			var myRoleListList = g.roleListList.slice();
 			var myTeamCountDict = {0: 0, 1: 0};
 			var myTeamList = []; //does not include holy
-			var needsCards = [];	//doubles as draft order		
+			var needsCards = [];	//doubles as draft order
 			var myRoleAssignments = [];
 			var myTeamAssignments = [];
 			for (var i = 0; i < playerCount; i++) {
@@ -64,7 +64,7 @@ stepDict = {
 				}
 			}
 			while (myTeamList.length + myRoleListList[0].length < playerCount) {
-				myTeamList.push(0);				
+				myTeamList.push(0);
 				myTeamCountDict[0] += 0;
 			}
 
@@ -170,7 +170,7 @@ stepDict = {
 
 			return stepResult;
 		}
-	},			
+	},
 	pregameEmail: {
 		skip: function(g) {return true},
 		title: null,
@@ -230,7 +230,7 @@ stepDict = {
 				stepResult.eventList.push(myLogEvent);
 				extraLivesList.push(0);
 				deathDataList.push(null);
-			}						
+			}
 			PermissionsLists.insert(new PermissionsList(g.gid, 'coven', []));
 			if (g.expansionList.indexOf(2) != -1) {
 				PermissionsLists.insert(new PermissionsList(g.gid, 'court', []));
@@ -260,7 +260,7 @@ stepDict = {
 			PermissionsLists.insert(new PermissionsList(g.gid, 'demons', ['xd']));
 			PermissionsLists.insert(new PermissionsList(g.gid, 'angelsDelayed', []));
 			PermissionsLists.insert(new PermissionsList(g.gid, 'demonsDelayed', []));
-			
+
 			stepResult.updateGameDict['private.playerList'] = playerList;
 			stepResult.updateGameDict['private.extraLivesList'] = extraLivesList;
 			stepResult.updateGameDict['deathDataList'] = deathDataList;
@@ -487,7 +487,7 @@ stepDict = {
 				for (var roleIndex in g.private.playerRoleListList[pid]) {
 					if (g.private.playerTeamList[pid][roleIndex] in travelerRoleIDs) {
 						teamCount += 1;
-					}					
+					}
 				}
 			}
 			return (teamCount < 2);
@@ -655,7 +655,7 @@ stepDict = {
 		step_auto: 1,
 		step: function(g) {
 			var stepResult = new StepResult();
-			var t = Targets.findOne({gid: g.gid, tag: "Priest"});			
+			var t = Targets.findOne({gid: g.gid, tag: "Priest"});
 			var myPID = t.a;
 			stepResult.eventList.push({tag: '', actors: [myPID], targets: []});
 			return stepResult;
@@ -1638,7 +1638,7 @@ function tallyVotes(cursor, requireTrueMajority) {
 	for (var index in votes) {
 		var targetList = votes[index].t;
 		for (var targetIndex in targetList) {
-			var target = targetList[targetIndex];	
+			var target = targetList[targetIndex];
 			if (!(target == 77)) {
 				if (!(target in tallyDict)) {
 					tallyDict[target] = 1;
@@ -1672,18 +1672,18 @@ function kill(stepResult, g, pid, killClass) {
 
 function die(stepResult, g, pid) {
 
-	
+
 	return stepResult;
 }
 
 function onDeath(stepResult, g, pid) {
 
-	
+
 	return stepResult;
 }
 
 function onSurvival(stepResult, g, pid) {
 
-	
+
 	return stepResult;
 }
