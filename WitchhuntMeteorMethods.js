@@ -52,9 +52,9 @@ Meteor.methods({
 				throw new Meteor.Error("not-authorized");
 			}
 			u = Meteor.users.findOne({username: overrideUsername},{username: 1, emails: 1, prefList: 1});
-			if (u == null) { //we need to make a new user account				
+			if (u == null) { //we need to make a new user account
 				if (Meteor.isServer) { //server makes a real new account
-					var new_id = Accounts.createUser({username: overrideUsername, password: overrideUsername});				
+					var new_id = Accounts.createUser({username: overrideUsername, password: overrideUsername});
 					u = Meteor.users.findOne({_id: new_id});
 				} else { //client has to make a temp dummy user
 					u = {u_id: "dummyID", username: overrideUsername, prefList: []};
@@ -94,7 +94,7 @@ Meteor.methods({
 		if (overrideUsername != null) {
 			if (userID != g.moderatorID) {
 				throw new Meteor.Error("not-authorized");
-			}			
+			}
 			if (g.playerNameList.indexOf(overrideUsername) == -1) {
 				throw new Meteor.Error("username-not-in-game");
 			}
@@ -240,7 +240,7 @@ Meteor.methods({
 				return null;
 			} else {
 				var my_cp = stepScheduleNextDict[g.currentPhase];							//sets the next full phase
-				var my_sl = stepScheduleDict[my_cp].slice();	//copy a fresh stepList for the new phase				
+				var my_sl = stepScheduleDict[my_cp].slice();	//copy a fresh stepList for the new phase
 				myStepName = my_sl[0];
 
 				updateGameDict['currentPhase'] = my_cp;
@@ -453,7 +453,7 @@ Meteor.methods({
 					}
 				}
 			}
-			for (var index in stepResult.messagePostList) { 
+			for (var index in stepResult.messagePostList) {
 				//TODO
 			}
 			if (advance) {
