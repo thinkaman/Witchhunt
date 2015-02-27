@@ -10,7 +10,7 @@ parseLogEvent = function(g, e) {
 		case '$ALC':
 			o += '';
 			break;
-		case '$A':			
+		case '$A':
 			var actor = "The Apprentice";
 			if (e.hasOwnProperty("actors")) {
 				actor = g.playerNameList[e.actors[0]] + " the Apprentice";
@@ -365,7 +365,7 @@ parseLogEvent = function(g, e) {
 				case 4:
 					o += g.playerNameList[e['actors'][0]] + ' roles TODO!';
 					break;
-				default: 
+				default:
 					o += "role count assignment error!";
 					break;
 			}
