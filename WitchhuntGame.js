@@ -12,7 +12,7 @@ Game = function(gameName, moderatorID, moderatorName) {
 	this.moderatorName = moderatorName;
 	this.playerIDList = []; //length serves as maxPlayerCount
 	this.playerNameList = [];
-	this.maxPlayerCount = 15;
+	this.maxPlayerCount = 20;
 	this.roleListList = baseSetDefaultRoleList; //length serves as roleCount
 	this.teamCountDict = {};
 	this.expansionList = [];
@@ -26,6 +26,15 @@ Game = function(gameName, moderatorID, moderatorName) {
 	this.lastLynchTarget = null;
 	this.bombHolder = null;
 	this.hunterNight = null;
+	this.courtList = [];
+
+	this.survivalList = [];
+	this.lustTargetList = [];
+	this.slothTarget = null;
+	this.wrathNoCovenKill = false;
+	this.envyTargetList = [];
+	this.prideTargetList = [];
+
 
 	this.auto = 2; //auto-advance priority
 	this.userVoting = false; //do users get to vote?
@@ -49,23 +58,15 @@ Game = function(gameName, moderatorID, moderatorName) {
 	this.private.playerRoleListList = [];
 	this.private.extraLivesList = [];
 	this.private.priestDeathLocationIndex = null; //used for Oracle
-	this.private.deathLocationQueue = [];		  //used for Oracle
+	this.private.deathLocationQueue = []; //used for Oracle
+	this.private.covenList = [];
 	this.private.angelCount = 0;
 	this.private.demonCount = 0;
 	this.private.demonTutorialStep = -1; //-1 - nothing, 0 - curse/protect only, 1 - solo only, 2 - double, 3-full
 	this.private.angelTutorialStep = -1; //-1 - nothing, 0 - curse/protect only, 1 - solo only, 2 - double, 3-full
 	this.private.doubleProtectUsed = false; //DEPRICATED: use a dedicated, second target instead (maybe a dummy)
 	//permission data
-	this.private.currentSubchannelDict = {k: 0,
-										  c: 0,
-										  j: 0,
-										  t: 0,
-										  s: 0,
-										  g: 0,
-										  l1: 0,
-										  l2: 0,
-										  l3: 0,
-										};
+	this.private.currentSubchannelDict = {k: 0, c: 0, j: 0, t: 0, s: 0, g: 0, l1: 0, l2: 0, l3: 0};
 
 	//temp vars (intra-phase inter-step)
 	this.private.tempTarget = null; //used for assassin
@@ -85,17 +86,6 @@ Game = function(gameName, moderatorID, moderatorName) {
 	//personal vars (pulled from player accounts, NEVER made public
 	this.userAccounts = [];
 
-	var keyList =  ['g-1', 'g-2', 'g-3', 'g2', 'g3', 'g41', 'g42', 'g43',
-					'angels', 'demons', 'angelsDelayed', 'demonsDelayed'];
-	for (var index in keyList) {
-		var initialList = [];
-		if (keyList[index] == "angels") {
-			initialList.push("xa");
-		} else if (keyList[index] == "demons") {
-			initialList.push("xd");
-		}
-		PermissionsLists.insert(new PermissionsList(this.gid, keyList[index], initialList));
-	}
 	return this;
 }
 
@@ -106,8 +96,6 @@ Player = function(id, username, playerIndex, team, subteam, roleList) {
 	this.team = team;
 	this.subteam = subteam;
 	this.roleList = roleList; //simple index list--might be ultimately superfulous with Target entries
-	this.covenJoinTime = null;
-	this.courtJoinTime = null;
 	this.permissionsKey = String(playerIndex);
 	this.playerIndex = playerIndex;
 	return this;
@@ -115,18 +103,19 @@ Player = function(id, username, playerIndex, team, subteam, roleList) {
 
 Target = function(gid, tag, pid, subchannel) {
 	this.gid = gid;
+	if (subchannel == null) {subchannel = '';}
 	for (var key in targetTemplateDict[tag]) {
 		var value = targetTemplateDict[tag][key];
 		if (key == "tag") {
 			value = value.replace('#', '' + pid);
-		} else if (typeof(value) == typeof("")) {	
+		} else if (typeof(value) == typeof("")) {
 			value = value.replace('#', '' + pid).replace('S', '' + subchannel);
 		} else if (value != null && typeof(value) == typeof([]) && value.length && typeof(value[0]) == typeof("")) {
 			for (var index in value) {
 				if (value[index] == '#') {
 					value[index] = pid;
 				} else {
-					value[index] = value[index].replace('#', '' + pid).replace('S', '' + subchannel);		
+					value[index] = value[index].replace('#', '' + pid).replace('S', '' + subchannel);
 				}
 			}
 		}
@@ -237,7 +226,7 @@ packLogEvent = function(g, permissionsLists, argsDict) {
 	var subeventList = [];
 	for (var key in argsDict) {
 		if (key != 'subindex') {
-			var mySubevent = {gid: gid, t: myDate, eid: eid, n: key, v: argsDict[key], p: []}			
+			var mySubevent = {gid: gid, t: myDate, eid: eid, n: key, v: argsDict[key], p: []}
 			if (key == 'tag' && 'subindex' in argsDict) {
 				mySubevent['subindex'] = argsDict['subindex'];
 			}
@@ -250,7 +239,7 @@ packLogEvent = function(g, permissionsLists, argsDict) {
 					}
 				}
 				//now that we have our full list of permissions, let's swap values into any templates
-				myPermissionsList = processPermissionTemplates(g, myPermissionsList, argsDict, argsDict[key])		
+				myPermissionsList = processPermissionTemplates(g, myPermissionsList, argsDict, argsDict[key])
 				mySubevent['p'] = myPermissionsList;
 			}
 			subeventList.push(mySubevent);
@@ -320,7 +309,7 @@ processPermissionTemplates = function(g, permissionList, argsDict, value) {
 				tempResults.push(p.slice(0,-1) + pid);
 			}
 		} else if (p.slice(-1) == 'T') { //apply permission for each target
-			for (var index2 in argsDict['targets']) {						
+			for (var index2 in argsDict['targets']) {
 				var pid = argsDict['targets'];
 				if (pid != 77) {
 					tempResults.push(p.slice(0,-1) + pid);
@@ -359,6 +348,80 @@ processPermissionTemplates = function(g, permissionList, argsDict, value) {
 		}
 	}
 	return results;
+}
+
+getSubchannelMembers = function(g, channel) {
+	var myList = [];
+	switch(channel) {
+		case 'k':
+			myList = g.courtList;
+			break;
+		case 'c':
+			return g.covenList; //no less-than-two check
+		case 'j':
+			for (var pid = 0; pid < g.private.playerTeamList.length; pid ++) {
+				if (g.deathDataList[pid] == null &&
+				    g.private.playerTeamList[pid] == -2 &&
+				    g.private.covenList.indexOf(pid) == -1) {
+					myList.push(pid);
+				}
+			}
+			break;
+		case 't':
+			for (var pid = 0; pid < g.private.playerTeamList.length; pid ++) {
+				if (g.deathDataList[pid] == null &&
+				    g.private.playerTeamList[pid] == -3 &&
+				    g.private.covenList.indexOf(pid) == -1) {
+					myList.push(pid);
+				}
+			}
+			break;
+		case 's':
+			for (var pid = 0; pid < g.private.playerTeamList.length; pid ++) {
+				if (g.deathDataList[pid] == null &&
+				    g.private.playerTeamList[pid] == 2) {
+					myList.push(pid);
+				}
+			}
+			break;
+		case 'g':
+			for (var pid = 0; pid < g.private.playerTeamList.length; pid ++) {
+				if (g.deathDataList[pid] == null &&
+				    g.private.playerTeamList[pid] == 3) {
+					myList.push(pid);
+				}
+			}
+			break;
+		case 'l1':
+			for (var pid = 0; pid < g.private.playerTeamList.length; pid ++) {
+				if (g.deathDataList[pid] == null &&
+				    g.private.playerTeamList[pid] == 41) {
+					myList.push(pid);
+				}
+			}
+			break;
+		case 'l2':
+			for (var pid = 0; pid < g.private.playerTeamList.length; pid ++) {
+				if (g.deathDataList[pid] == null &&
+				    g.private.playerTeamList[pid] == 42) {
+					myList.push(pid);
+				}
+			}
+			break;
+		case 'l3':
+			for (var pid = 0; pid < g.private.playerTeamList.length; pid ++) {
+				if (g.deathDataList[pid] == null &&
+				    g.private.playerTeamList[pid] == 43) {
+					myList.push(pid);
+				}
+			}
+			break;
+		default:
+	}
+	if (myList.length < 2) {
+		return [];
+	}
+	return myList;
 }
 
 saveNewMessage = function(gid, pid, channel, messageValue) {

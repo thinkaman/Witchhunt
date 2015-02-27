@@ -1,14 +1,61 @@
 StepResult = function() {
+	this.removeTargetList = []; //[{search field}]
 	this.changeTargetDict = {}; //dict[Target tag] = newTargets
 	this.updateTargetTupleList = []; //[[{search field} {update field}]]
+	this.addTargetList = []; //[{search field}]
 	this.updateGameDict = {}; //dict[Game object param] = value to update to
-	this.subchannelUpdateDict = {}; //dict[channelKey to increment] = list of pids to grant access to new suchannel
+	this.subchannelUpdateDict = {}; //dict[channelKey to increment] = true to grant access to new suchannel
 	this.updatePermissionsKeyDict = {}; //dict[pid] = new permissionsKey
+	this.insertStepList = []; //[newStepName]
 	this.eventList = []; //list of events
-	this.permissionsUpdateDict = {}; //dict[pid] = list of permissions to add 
+	this.permissionsUpdateDict = {}; //dict[pid] = list of permissions to add
 	this.permissionsPool = false; //check for bilateral permissions conversions
 	this.resolvePermissionsTimeDelay = false; //end of night conversion of temp permissions
 	this.messagePostList = []; //list of Messages to post
+
+	this.getCurrentValue = function(g, propertyName) {
+		if (this.updateGameDict.hasOwnProperty(propertyName)) {
+			return this.updateGameDict[propertyName];
+		} else if (propertyName.slice(0,8) == "private.") { //gotta support these explicitly
+			if (propertyName.slice(8,23) == "extraLivesList.") { //to reconcile mongo/js syntax
+				return g.private.extraLivesList[propertyName.slice(23)];
+			} else {
+				return g.private[propertyName.slice(8)];
+			}
+		} else {
+			return g[propertyName];
+		}
+	}
+	this.addToGameProperty = function(g, propertyName, value) {
+		if (this.updateGameDict.hasOwnProperty(propertyName)) {
+			this.updateGameDict[propertyName] += value;
+		} else if (propertyName.slice(0,8) == "private.") { //gotta support these explicitly
+			if (propertyName.slice(8,23) == "extraLivesList.") { //to reconcile mongo/js syntax
+				this.updateGameDict[propertyName] = g.private.extraLivesList[propertyName.slice(23)] + value;
+			} else {
+				this.updateGameDict[propertyName] = g.private[propertyName.slice(8)] + value;
+			}
+		} else {
+			this.updateGameDict[propertyName] = g[propertyName] + value;
+		}
+	}
+	this.incrementGameProperty = function(g, propertyName) {
+		return this.addToGameProperty(g, propertyName, 1);
+	}
+	this.decrementGameProperty = function(g, propertyName) {
+		return this.addToGameProperty(g, propertyName, -1);
+	}
+	this.pushGameProperty = function(g, propertyName, newElement) {
+		if (!this.updateGameDict.hasOwnProperty(propertyName)) {
+			if (propertyName.slice(0,8) == "private.") {
+				this.updateGameDict[propertyName] = g.private[propertyName.slice(8)];
+			} else {
+				this.updateGameDict[propertyName] = g[propertyName];
+
+			}
+		}
+		return this.updateGameDict[propertyName].push(newElement);
+	}
 }
 
 stepDict = {
@@ -17,7 +64,7 @@ stepDict = {
 		skip: null,
 		title: "Role Deal",
 		target_auto: null,
-		step_auto: 3,
+		step_auto: 1,
 		step: function(g) {
 			var stepResult = new StepResult();
 			//initialize deal vars
@@ -30,7 +77,7 @@ stepDict = {
 			var myRoleListList = g.roleListList.slice();
 			var myTeamCountDict = {0: 0, 1: 0};
 			var myTeamList = []; //does not include holy
-			var needsCards = [];	//doubles as draft order		
+			var needsCards = [];	//doubles as draft order
 			var myRoleAssignments = [];
 			var myTeamAssignments = [];
 			for (var i = 0; i < playerCount; i++) {
@@ -51,7 +98,7 @@ stepDict = {
 
 			//decide team counts
 			var myTeamBreakpointDict = baseSetTeamBreakpointDict;
-			if (g.expansionList.indexOf(masterExpansionList.indexOf("Halftime")) != 1) {
+			if (g.expansionList.indexOf(masterExpansionList.indexOf("Halftime")) != -1) {
 				myTeamBreakpointDict = halftimeTeamBreakpointDict;
 			}
 
@@ -64,7 +111,7 @@ stepDict = {
 				}
 			}
 			while (myTeamList.length + myRoleListList[0].length < playerCount) {
-				myTeamList.push(0);				
+				myTeamList.push(0);
 				myTeamCountDict[0] += 0;
 			}
 
@@ -76,7 +123,12 @@ stepDict = {
 			shuffle(myTeamList);
 
 			//randomly deal holy characters
-			while (myRoleListList[0].length) {
+			//while (myRoleListList[0].length)
+			var pid = needsCards.shift();
+			myRoleAssignments[pid] = [myRoleListList[0].shift()];
+			myTeamAssignments[pid] = 1;
+			myTeamCountDict[1] += 0;
+			if (playerCount >= 17) { //hack
 				var pid = needsCards.shift();
 				myRoleAssignments[pid] = [myRoleListList[0].shift()];
 				myTeamAssignments[pid] = 1;
@@ -170,7 +222,7 @@ stepDict = {
 
 			return stepResult;
 		}
-	},			
+	},
 	pregameEmail: {
 		skip: function(g) {return true},
 		title: null,
@@ -190,13 +242,13 @@ stepDict = {
 			var stepResult = new StepResult();
 			//generate and store events, prepare game.player objects, create Targets and PermissionsLists
 			stepResult.eventList.push({tag:"@START", subindex: -999});
-			Targets.insert(new Target(g.gid, "lynch-master", null, null));
+			stepResult.addTargetList.push(new Target(g.gid, "lynch-master", null, null));
 			var playerList = [];
 			var extraLivesList = [];
 			var deathDataList = [];
 			for (var pid = 0; pid < g.private.playerRoleListList.length; pid++) {
 				if (g.userVoting) {
-					Targets.insert(new Target(g.gid, "lynch-vote#", pid, null));
+					stepResult.addTargetList.push(new Target(g.gid, "lynch-vote#", pid, null));
 				}
 				PermissionsLists.insert(new PermissionsList(g.gid, pid, ['a' + pid]));
 				var myRoleList = g.private.playerRoleListList[pid];
@@ -206,9 +258,9 @@ stepDict = {
 						stepResult.updateTargetTupleList.push([{gid: g.gid, tag: "Apprentice"},
 							{$set: {whitelist: [masterRoleList.indexOf("Gravedigger"), masterRoleList.indexOf("Judge")]}}]);
 					}
-					Targets.insert(new Target(g.gid, roleString, pid, null));
+					stepResult.addTargetList.push(new Target(g.gid, roleString, pid, null));
 					if (doubleTargetList.indexOf(roleString) != -1) { //some roles have two target objects
-						Targets.insert(new Target(g.gid, (roleString + '-2'), pid, null));
+						stepResult.addTargetList.push(new Target(g.gid, (roleString + '-2'), pid, null));
 					}
 				}
 				var myTeam = g.private.playerTeamList[pid];
@@ -230,7 +282,7 @@ stepDict = {
 				stepResult.eventList.push(myLogEvent);
 				extraLivesList.push(0);
 				deathDataList.push(null);
-			}						
+			}
 			PermissionsLists.insert(new PermissionsList(g.gid, 'coven', []));
 			if (g.expansionList.indexOf(2) != -1) {
 				PermissionsLists.insert(new PermissionsList(g.gid, 'court', []));
@@ -260,7 +312,7 @@ stepDict = {
 			PermissionsLists.insert(new PermissionsList(g.gid, 'demons', ['xd']));
 			PermissionsLists.insert(new PermissionsList(g.gid, 'angelsDelayed', []));
 			PermissionsLists.insert(new PermissionsList(g.gid, 'demonsDelayed', []));
-			
+
 			stepResult.updateGameDict['private.playerList'] = playerList;
 			stepResult.updateGameDict['private.extraLivesList'] = extraLivesList;
 			stepResult.updateGameDict['deathDataList'] = deathDataList;
@@ -313,13 +365,14 @@ stepDict = {
 				}
 			}
 
+			stepResult.updateGameDict['private.covenList'] = witchPIDs;
 			stepResult.eventList.push({tag: '@WR', actors: witchPIDs});
-			Targets.insert(new Target(g.gid, "coven-master", null, g.private.currentSubchannelDict['c']));
-			Targets.insert(new Target(g.gid, "covenIllusion-master", null, g.private.currentSubchannelDict['c']));
+			stepResult.addTargetList.push(new Target(g.gid, "coven-master", null, g.private.currentSubchannelDict['c']));
+			stepResult.addTargetList.push(new Target(g.gid, "covenIllusion-master", null, g.private.currentSubchannelDict['c']));
 			if (mixedJuniorPIDs.length) {
 				shuffle(mixedJuniorPIDs);
 				stepResult.eventList.push({tag: '@JSR1', actors: witchPIDs, targets: mixedJuniorPIDs});
-				Targets.insert(new Target(g.gid, "covenRecruit-master", null, g.private.currentSubchannelDict['c']));
+				stepResult.addTargetList.push(new Target(g.gid, "covenRecruit-master", null, g.private.currentSubchannelDict['c']));
 			}
 			if (warlockPIDs.length) {
 				stepResult.eventList.push({tag: '@WLR', actors: witchPIDs, targets: warlockPIDs});
@@ -327,13 +380,12 @@ stepDict = {
 
 			for (var index in witchPIDs) {
 				var pid = witchPIDs[index];
-				stepResult.updateGameDict['private.playerList.' + pid + '.covenJoinTime'] = g.createdAt;
 				stepResult.updatePermissionsKeyDict[pid] = "coven";
 				if (g.userVoting) {
-					Targets.insert(new Target(g.gid, "coven-vote#", pid, g.private.currentSubchannelDict['c']));
-					Targets.insert(new Target(g.gid, "covenIllusion-vote#", pid, g.private.currentSubchannelDict['c']));
+					stepResult.addTargetList.push(new Target(g.gid, "coven-vote#", pid, g.private.currentSubchannelDict['c']));
+					stepResult.addTargetList.push(new Target(g.gid, "covenIllusion-vote#", pid, g.private.currentSubchannelDict['c']));
 					if (mixedJuniorPIDs.length) {
-						Targets.insert(new Target(g.gid, "covenRecruit-vote#", null, g.private.currentSubchannelDict['c']));
+						stepResult.addTargetList.push(new Target(g.gid, "covenRecruit-vote#", null, g.private.currentSubchannelDict['c']));
 					}
 				}
 			}
@@ -468,6 +520,7 @@ stepDict = {
 					}
 				}
 				if (groupIDs.length == 2) {
+					stepResult.permissionsUpdateDict["lovers" + i] = ['gl' + i + '0'];
 					stepResult.eventList.push({tag: '@LR', actors: [groupPIDs[0]], targets: [groupPIDs[1]]});
 				}
 			}
@@ -487,7 +540,7 @@ stepDict = {
 				for (var roleIndex in g.private.playerRoleListList[pid]) {
 					if (g.private.playerTeamList[pid][roleIndex] in travelerRoleIDs) {
 						teamCount += 1;
-					}					
+					}
 				}
 			}
 			return (teamCount < 2);
@@ -505,13 +558,17 @@ stepDict = {
 		skip: null,
 		title: null,
 		target_auto: null,
-		step_auto: 5,
+		step_auto: null,
 		step: function(g) {
 			var stepResult = new StepResult();
 			//stepResult.eventList.push({tag: '', actors: [], targets: []});
-			if (g.userVoting) {
-				stepResult.updateTargetTupleList.push([{gid: g.gid, tag: {$regex: /lynch-/}}, {$set: {locked: 0}}]);
-			}
+
+
+
+
+
+			stepResult.updateTargetTupleList.push([{gid: g.gid, tag: {$regex: /lynch-/}}, {$set: {locked: 0}}]);
+			stepResult.incrementGameProperty(g, 'cycleNum');
 			stepResult.updateGameDict['lastLynchTarget'] = null;
 			stepResult.updateGameDict['private.tempTarget'] = null;
 			stepResult.updateGameDict['private.checkedFanatic'] = false;
@@ -526,7 +583,7 @@ stepDict = {
 		},
 	},
 	'lynch-master': {
-		skip: false,
+		skip: null,
 		title: null,
 		target_auto: 5,
 		step_auto: 5,
@@ -537,10 +594,22 @@ stepDict = {
 			if (t.t[0] != 77) {
 				lynchTarget = t.t;
 			} else {
-				var votes_cursor = Targets.find({gid: gid, tag: {$regex: /lynch-/}});
+				var votes_cursor = Targets.find({gid: g.gid, tag: {$regex: /lynch-/}});
 				lynchTarget = tallyVotes(votes_cursor, true);
 			}
-			stepResult.eventList.push({tag: '@LK', targets: lynchTarget});
+			if (lynchTarget[0] == 77 || lynchTarget[0] == 88) {
+				stepResult.eventList.push({tag: '@LK', targets: lynchTarget});
+			} else {
+				var result = kill(stepResult, g, lynchTarget[0], 'lynch');
+				if (!result[1]) { //dead
+					stepResult.eventList.push({tag: '@LK', targets: lynchTarget, statusCodes: [0], targetAliveBool: 0});
+					onDeath(stepResult, g, lynchTarget[0], "Day");
+				} else { //survived
+					stepResult.eventList.push({tag: '@LK', targets: lynchTarget, statusCodes: [result[1]], targetAliveBool: 1});
+					onSurvival(stepResult, g, lynchTarget[0], "Day");
+				}
+			}
+			stepResult.updateGameDict['lastLynchTarget'] = lynchTarget[0];
 			return stepResult;
 		},
 	},
@@ -548,7 +617,7 @@ stepDict = {
 		skip: function(g) {return true},
 		title: null,
 		target_auto: null,
-		step_auto: 1,
+		step_auto: 4,
 		step: function(g) {
 			var stepResult = new StepResult();
 			stepResult.eventList.push({tag: '', actors: [], targets: []});
@@ -559,10 +628,21 @@ stepDict = {
 		skip: function(g) {return true},
 		title: null,
 		target_auto: null,
-		step_auto: 1,
+		step_auto: 4,
 		step: function(g) {
 			var stepResult = new StepResult();
 			stepResult.eventList.push({tag: '', actors: [], targets: []});
+			return stepResult;
+		},
+	},
+	'bombPass': {
+		skip: function(g) {return this.bombHolder == null;},
+		title: null,
+		target_auto: null,
+		step_auto: 4,
+		step: function(g) {
+			var stepResult = new StepResult();
+			//stepResult.eventList.push({tag: '', actors: [], targets: []});
 			return stepResult;
 		},
 	},
@@ -592,7 +672,29 @@ stepDict = {
 			return stepResult;
 		},
 	},
-	'loverSuicide': {
+	'loverSuicide1': {
+		skip: function(g) {return true},
+		title: null,
+		target_auto: null,
+		step_auto: 1,
+		step: function(g) {
+			var stepResult = new StepResult();
+			stepResult.eventList.push({tag: '', actors: [], targets: []});
+			return stepResult;
+		},
+	},
+	'loverSuicide2': {
+		skip: function(g) {return true},
+		title: null,
+		target_auto: null,
+		step_auto: 1,
+		step: function(g) {
+			var stepResult = new StepResult();
+			stepResult.eventList.push({tag: '', actors: [], targets: []});
+			return stepResult;
+		},
+	},
+	'loverSuicide3': {
 		skip: function(g) {return true},
 		title: null,
 		target_auto: null,
@@ -655,14 +757,22 @@ stepDict = {
 		step_auto: 1,
 		step: function(g) {
 			var stepResult = new StepResult();
-			var t = Targets.findOne({gid: g.gid, tag: "Priest"});			
+			var t = Targets.findOne({gid: g.gid, tag: "Priest"});
 			var myPID = t.a;
 			stepResult.eventList.push({tag: '', actors: [myPID], targets: []});
 			return stepResult;
 		},
 	},
 	'Judge': {
-		skip: null, //insert only
+		skip: function(g) {
+			if (g.lastLynchTarget != 77 && g.lastLynchTarget != 88) { //non no-lynch
+				return true;
+			} else if (g.privateApprenticeChoice == masterRoleList.indexOf("Judge") && //has apprentice
+			           g.deathDataList[getPIDn(g, "Judge")] != null) { //judge dead
+				return true;
+			}
+			return false;
+		},
 		title: null,
 		role_index: masterRoleList.indexOf('Judge'),
 		target_auto: null,
@@ -671,7 +781,31 @@ stepDict = {
 			var stepResult = new StepResult();
 			var t = Targets.findOne({gid: g.gid, tag: "Judge"});
 			var myPID = t.a;
-			stepResult.eventList.push({tag: '', actors: [myPID], targets: []});
+			if (g.deathDataList[myPID] != null) { //dead judge
+				stepResult.eventList.push({tag: '$J', alive: 0, actors: [myPID], targets: [77],
+				                           townLynchTarget: g.lastLynchTarget});
+			} else { //living judge
+				lynchTarget = t.t[0];
+				if (lynchTarget[0] == 77 || lynchTarget[0] == 88) {
+					stepResult.eventList.push({tag: '$J', alive: 1, actors: [myPID], targets: [77],
+					                           townLynchTarget: g.lastLynchTarget});
+				} else {
+					var extraLivesBurned = g.private.extraLivesList[lynchTarget[0]];
+					var result = kill(stepResult, g, lynchTarget[0], 'judge');
+					stepResult.updateGameDict['lastLynchTarget'] = lynchTarget[0];
+					if (!result[1]) { //dead
+						stepResult.eventList.push({tag: '$J', alive: 1, actors: [myPID], targets: lynchTarget,
+						                           townLynchTarget: g.lastLynchTarget,
+						                           statusCodes: [0], targetAliveBool: 0, extraLivesBurned: extraLivesBurned});
+						onDeath(stepResult, g, lynchTarget[0], "Day");
+					} else { //survived
+						stepResult.eventList.push({tag: '$J', alive: 1, actors: [myPID], targets: lynchTarget,
+						                           townLynchTarget: g.lastLynchTarget,
+						                           statusCodes: [result[1]], targetAliveBool: 1});
+						onSurvival(stepResult, g, lynchTarget[0], "Day");
+					}
+				}
+			}
 			return stepResult;
 		},
 	},
@@ -827,7 +961,14 @@ stepDict = {
 		},
 	},
 	'Apprentice-J': {
-		skip: null, //insert only
+		skip: function(g) {
+			if ((g.lastLynchTarget != 77 && g.lastLynchTarget != 88) || //non no-lynch
+			    g.privateApprenticeChoice != masterRoleList.indexOf("Judge") || //picked different
+			    g.deathDataList[getPIDn(g, "Judge")] == null) { //judge alive
+				return true;
+			}
+			return false;
+		},
 		title: null,
 		target_auto: null,
 		step_auto: 1,
@@ -835,15 +976,42 @@ stepDict = {
 			var stepResult = new StepResult();
 			var t = Targets.findOne({gid: g.gid, tag: "Apprentice-J"});
 			var myPID = t.a;
-			stepResult.eventList.push({tag: '', actors: [myPID], targets: []});
+			var judgePID = getPIDn(g, "Judge");
+			if (g.deathDataList[myPID] != null) { //dead apprentice-judge
+				stepResult.eventList.push({tag: '$J', alive: 0, actors: [myPID], targets: [77],
+				                           townLynchTarget: g.lastLynchTarget,
+				                           deadJudgeID: judgePID});
+			} else { //living apprentice-judge
+				lynchTarget = t.t[0];
+				if (lynchTarget[0] == 77 || lynchTarget[0] == 88) {
+					stepResult.eventList.push({tag: '$J', alive: 1, actors: [myPID], targets: [77],
+					                           townLynchTarget: g.lastLynchTarget,
+					                           deadJudgeID: judgePID});
+				} else {
+					var result = kill(stepResult, g, lynchTarget[0], 'judge');
+					stepResult.updateGameDict['lastLynchTarget'] = lynchTarget[0];
+					if (!result[1]) { //dead
+						stepResult.eventList.push({tag: '$J', alive: 1, actors: [myPID], targets: lynchTarget,
+						                           townLynchTarget: g.lastLynchTarget,
+						                           statusCodes: [0], targetAliveBool: 0, extraLivesBurned: extraLivesBurned,
+						                           deadJudgeID: judgePID});
+						onDeath(stepResult, g, lynchTarget[0], "Day");
+					} else { //survived
+						stepResult.eventList.push({tag: '$J', alive: 1, actors: [myPID], targets: lynchTarget,
+						                           townLynchTarget: g.lastLynchTarget,
+						                           statusCodes: [result[1]], targetAliveBool: 1,
+						                           deadJudgeID: judgePID});
+						onSurvival(stepResult, g, lynchTarget[0], "Day");
+					}
+				}
+			}
 			return stepResult;
 		},
 	},
 	'Apprentice-G': {
 		skip: function(g) {
-			if (g.privateApprenticeChoice != masterRoleList.indexOf("Gravedigger")) {
-				return true;
-			} else if (g.deathDataList[getPIDn(g, "Gravedigger")] == null) { //gravedigger not dead
+			if (g.privateApprenticeChoice != masterRoleList.indexOf("Gravedigger") ||
+			    g.deathDataList[getPIDn(g, "Gravedigger")] == null) { //gravedigger not dead
 				return true;
 			}
 			return false;
@@ -1153,7 +1321,7 @@ stepDict = {
 			}
 			shuffle(spyRoleIndexListList);
 			stepResult.eventList.push({tag: '$CON1', actors: [myPID], targets: groupPIDs,
-									   spyRoleIndexListList: spyRoleIndexListList, spyCount: groupPIDs.length});
+			                           spyRoleIndexListList: spyRoleIndexListList, spyCount: groupPIDs.length});
 			return stepResult;
 		},
 	},
@@ -1612,19 +1780,19 @@ function getPID(g, roleIndex) {
 }
 
 function shuffle(array) {
-    var counter = array.length, temp, index;
-    // While there are elements in the array
-    while (counter > 0) {
-        // Pick a random index
-        index = Math.floor(Math.random() * counter);
-        // Decrease counter by 1
-        counter--;
-        // And swap the last element with it
-        temp = array[counter];
-        array[counter] = array[index];
-        array[index] = temp;
-    }
-    return array;
+	var counter = array.length, temp, index;
+	// While there are elements in the array
+	while (counter > 0) {
+		// Pick a random index
+		index = Math.floor(Math.random() * counter);
+		// Decrease counter by 1
+		counter--;
+		// And swap the last element with it
+		temp = array[counter];
+		array[counter] = array[index];
+		array[index] = temp;
+	}
+	return array;
 }
 
 function tallyVotes(cursor, requireTrueMajority) {
@@ -1632,13 +1800,13 @@ function tallyVotes(cursor, requireTrueMajority) {
 	if (!total) {
 		return [77];
 	}
-	var votes = cursur.fetch();
+	var votes = cursor.fetch();
 
 	var tallyList = {};
 	for (var index in votes) {
 		var targetList = votes[index].t;
 		for (var targetIndex in targetList) {
-			var target = targetList[targetIndex];	
+			var target = targetList[targetIndex];
 			if (!(target == 77)) {
 				if (!(target in tallyDict)) {
 					tallyDict[target] = 1;
@@ -1665,25 +1833,165 @@ function tallyVotes(cursor, requireTrueMajority) {
 }
 
 function kill(stepResult, g, pid, killClass) {
-
-
-	return stepResult;
+	//killClass options: null, "lynch", "judge", "rogue", "execute", "fake"
+	var extraLifeCount = stepResult.getCurrentValue(g, 'private.extraLivesList.' + pid);
+	if (g.deathDataList[pid] != null) {
+		return [pid, survivalCodeList.indexOf("already-dead")];
+	} else if (killClass == "fake") {
+		return [pid, survivalCodeList.indexOf("fake")];
+	} else if (killClass == "rogue") {
+		if (extraLifeCount > 0) {
+			if (extraLifeCount >= 2) { //survives
+				stepList.decrementGameProperty(g, 'private.extraLivesList.' + pid);
+				stepList.decrementGameProperty(g, 'private.extraLivesList.' + pid);
+				return [pid, survivalCodeList.indexOf("extra-life")];
+			} else { //dies
+				return [pid, 0];
+			}
+		} else { //no extra lives - kill fails
+			return [pid, survivalCodeList.indexOf("rogue")];
+		}
+	} else if (g.currentPhase == "Night" && killClass != "execute") { //night protection is skipped entirely for executes
+		if (stepResult.getCurrentValue(g, 'cycleNum') == stepResult.getCurrentValue(g, 'halftime') &&
+			g.private.playerList[pid].roleList.indexOf(masterRoleList.indexOf("Daredevil")) != -1) {
+			return [pid, survivalCodeList.indexOf("daredevil-self")];
+		} else if (stepResult.getCurrentValue(g, 'cycleNum') <= 3 &&
+			g.private.playerList[pid].roleList.indexOf(masterRoleList.indexOf("Emissary")) != -1) {
+			return [pid, survivalCodeList.indexOf("emissary")];
+		}
+		for (var i = 0; i < g.private.nightProtectList.length; i++) {
+			if (g.private.nightProtectList[i] % 100 == pid) {
+				var survivalCode = Math.floor(g.private.nightProtectList.splice(i, 1)[0] / 100);
+				if (survivalCode == survivalCodeList.index("daredevil-intercept")) {
+					var daredevilPID = null;
+					for (var j = 0; j < g.private.playerRoleListList[j]; j++) {
+						if (g.private.playerRoleListList[j].indexOf(masterRoleList.indexOf("Daredevil")) != -1) {
+							daredevilPID = j;
+							break;
+						}
+					}
+					stepList.eventList.push({tag: '$DD3', actors: [daredevilPID], targets: [pid]});
+					return [daredevilPID, survivalCodeList.indexOf("daredevil-intercept")];
+				}
+				return [pid, survivalCode];
+			}
+		}
+		if (g.private.playerList[pid].team == 4) { //lovers
+			var mySubteam = g.private.playerList[pid].subteam;
+			var loverPID = null;
+			for (var i = 0; i < g.private.playerTeamList.length; i++) {
+				if (i != pid && g.private.playerList[i].team == 4 || g.private.playerList[pid].subteam == mySubteam) {
+					loverPID = i;
+					break;
+				}
+			}
+			if (stepResult.getCurrentValue(g, 'cycleNum') == stepResult.getCurrentValue(g, 'halftime') &&
+				g.private.playerList[loverPID].roleList.indexOf(masterRoleList.indexOf("Daredevil")) != -1) {
+				return [pid, 100 + survivalCodeList.indexOf("daredevil-self")];
+			} else if (stepResult.getCurrentValue(g, 'cycleNum') <= 3 &&
+				g.private.playerList[loverPID].roleList.indexOf(masterRoleList.indexOf("Emissary")) != -1) {
+				return [pid, 100 + survivalCodeList.indexOf("emissary")];
+			}
+			for (var i = 0; i < g.private.nightProtectList.length; i++) {
+				if (g.private.nightProtectList[i] % 100 == loverPID) {
+					var survivalCode = Math.floor(g.private.nightProtectList.splice(i, 1)[0] / 100);
+					if (survivalCode == survivalCodeList.index("daredevil-intercept")) {
+						var daredevilPID = null;
+						for (var j = 0; j < g.private.playerRoleListList[j]; j++) {
+							if (g.private.playerRoleListList[j].indexOf(masterRoleList.indexOf("Daredevil")) != -1) {
+								daredevilPID = j;
+								break;
+							}
+						}
+						stepList.eventList.push({tag: '$DD3', actors: [daredevilPID], targets: [pid, loverPID]});
+						return [daredevilPID, 100 + survivalCodeList.indexOf("daredevil-intercept")];
+					}
+					return [pid, 100 + survivalCode];
+				}
+			}
+			//finally, we only want to handle lover extra lives if our main target has none
+			var loverExtraLifeCount = stepResult.getCurrentValue(g, 'private.extraLivesList.' + loverPID);
+			if (extraLifeCount == 0 && loverExtraLifeCount > 0) {
+				stepList.decrementGameProperty(g, 'private.extraLivesList.' + loverPID);
+				return [pid, 100 + survivalCodeList.indexOf("extra-lives")];
+			}
+		}
+	}
+	if (stepResult.getCurrentValue(g, 'cycleNum') <= 3 &&
+	    g.private.playerList[pid].roleList.indexOf(masterRoleList.indexOf("Emissary")) != -1) {
+		return [pid, survivalCodeList.indexOf("emissary")];
+	}
+	if (killClass == null || killClass == "lynch") {
+		if (extraLifeCount > 0) {
+			stepList.decrementGameProperty(g, 'private.extraLivesList.' + pid);
+			return [pid, survivalCodeList.indexOf("extra-lives")];
+		}
+	}
+	//else kill!
+	return [pid, 0];
 }
 
-function die(stepResult, g, pid) {
+function onDeath(stepResult, g, pid, phase) {
+	//Change Game vars:
+	stepResult.decrementGameProperty(g, 'aliveNum');
+	myDeathOrder = 1;
+	for (var i = 1; i < g.deathDataList.length; i++) {
+		if (g.deathDataList[i] != null) {
+			myDeathOrder += 1;
+		}
+	}
+	stepResult.updateGameDict['deathDataList.' + pid] = [g.cycleNum, phase, myDeathOrder, new Date()];
 
-	
-	return stepResult;
+	//if member of any groups, leave and increment their subchannel
+	if (g.courtList.indexOf(pid) != -1) {
+		g.courtList.splice(g.courtList.indexOf(pid), 1);
+		stepResult.updateGameDict['courtList'] = g.courtList;
+		stepResult.subchannelUpdateDict['k'] = true;
+	}
+	if (g.private.covenList.indexOf(pid) != -1) {
+		g.private.covenList.splice(g.private.covenList.indexOf(pid), 1);
+		stepResult.updateGameDict['private.covenList'] = g.private.covenList;
+		stepResult.subchannelUpdateDict['c'] = true;
+	} else if (g.private.playerTeamList[pid] in teamChannelLabelDict) {
+		stepResult.subchannelUpdateDict[teamChannelLabelDict[g.private.playerTeamList[pid]]] = true;
+	}
+
+	//Remove or modify applicable Target objects:
+	stepResult.removeTargetList.push({gid: g.gid, tag: {$regex: /-vote/}});
+	stepResult.updateTargetTupleList.push([{gid: g.gid, a: pid}, {locked: 1}]);
+	stepResult.updateTargetTupleList.push([{gid: g.gid, style: {$in: [1,2]}}, {$pull: {t: pid}}]);
+
+	//Angel or Demon?
+	if (g.private.playerList[pid].team >= 0) { //angel
+		stepResult.updateGameDict['private.angelCount'] = g.private.angelCount + 1;
+		stepResult.updatePermissionsKeyDict[pid] = 'angels';
+		stepResult.addTargetList.push(new Target(g.gid, 'angel-vote' + pid, pid, null));
+		stepResult.addTargetList.push(new Target(g.gid, 'angelDouble-vote' + pid, pid, null));
+	} else { //demon
+		stepResult.updateGameDict['private.demonCount'] = g.private.demonCount + 1;
+		stepResult.updatePermissionsKeyDict[pid] = 'demons';
+		stepResult.addTargetList.push(new Target(g.gid, 'demon-vote' + pid, pid, null));
+	}
+
+	//on-death procs
+	if (g.private.playerRoleListList[pid].indexOf(masterRoleList.indexOf("Benevolent Old Dame")) != -1) {
+		stepResult.insertStepList.push("Benevolent Old Dame");
+	}
+	if (g.private.playerRoleListList[pid].indexOf(masterRoleList.indexOf("Dirty Old Bastard")) != -1) {
+		stepResult.insertStepList.push("Dirty Old Bastard");
+	}
+	if (g.private.playerList[pid].team == 4) {
+		stepResult.insertStepList.push("loverSuicide" + g.private.playerList[pid].subteam);
+	}
+	//lust suicide
+	if (g.lustTargetList.indexOf(pid) != -1) {
+		stepResult.insertStepList.push("lustSuicide");
+	}
 }
 
-function onDeath(stepResult, g, pid) {
-
-	
-	return stepResult;
-}
-
-function onSurvival(stepResult, g, pid) {
-
-	
-	return stepResult;
+function onSurvival(stepResult, g, pid, phase) {
+	if (g.hunterNight == null) {
+		stepResult.updateGameDict['g.hunterNight'] = stepResult.getCurrentValue(g, cycleNum);
+	}
+	stepResult.pushGameProperty(g, 'survivalList', [stepResult.getCurrentValue(g, cycleNum), phase]);
 }

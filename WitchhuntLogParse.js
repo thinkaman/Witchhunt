@@ -10,10 +10,12 @@ parseLogEvent = function(g, e) {
 		case '$ALC':
 			o += '';
 			break;
-		case '$A':			
+		case '$A':
 			var actor = "The Apprentice";
 			if (e.hasOwnProperty("actors")) {
 				actor = g.playerNameList[e.actors[0]] + " the Apprentice";
+			} else {
+				return null;
 			}
 			var target = 'someone';
 			var target2 = 'they';
@@ -72,6 +74,8 @@ parseLogEvent = function(g, e) {
 			var actor = "The Conspirator";
 			if (e.hasOwnProperty("actors")) {
 				actor = g.playerNameList[e.actors[0]] + " the Conspirator";
+			} else {
+				return null;
 			}
 			var target = 'the ' + e.spyCount + ' Village Spies';
 			if (e.hasOwnProperty('targets')) {
@@ -134,6 +138,8 @@ parseLogEvent = function(g, e) {
 			var actor = "The Gambler";
 			if (e.hasOwnProperty("actors")) {
 				actor = g.playerNameList[e.actors[0]] + " the Gambler";
+			} else {
+				return null;
 			}
 			var choice = 'either odd or even';
 			if (e.hasOwnProperty('selectionInt')) {
@@ -229,6 +235,8 @@ parseLogEvent = function(g, e) {
 			var actor = "The Oracle";
 			if (e.hasOwnProperty("actors")) {
 				actor = g.playerNameList[e.actors[0]] + " the Oracle";
+			} else {
+				return null;
 			}
 			var location = ' in a particular spot.';
 			if (e.hasOwnProperty('priestDeathLocationIndex')) {
@@ -242,6 +250,8 @@ parseLogEvent = function(g, e) {
 			var actor = "The Peeping Tim";
 			if (e.hasOwnProperty("actors")) {
 				actor = g.playerNameList[e.actors[0]] + " the Peeping Tim";
+			} else {
+				return null;
 			}
 			var target = 'someone';
 			if (e.hasOwnProperty('targets')) {
@@ -252,6 +262,8 @@ parseLogEvent = function(g, e) {
 			var actor = "The Peeping Tom";
 			if (e.hasOwnProperty("actors")) {
 				actor = g.playerNameList[e.actors[0]] + " the Peeping Tom";
+			} else {
+				return null;
 			}
 			var target = 'someone';
 			if (e.hasOwnProperty('targets')) {
@@ -289,6 +301,8 @@ parseLogEvent = function(g, e) {
 			var actor = "The Survivalist";
 			if (e.hasOwnProperty("actors")) {
 				actor = g.playerNameList[e.actors[0]] + " the Survivalist";
+			} else {
+				return null;
 			}
 			o += actor + " has an extra life.";
 			break;
@@ -350,9 +364,10 @@ parseLogEvent = function(g, e) {
 					} else {
 						if (e.hasOwnProperty('teamIndex')) {
 							o += "an unknown role as a " + masterTeamDict[e['teamIndex']] +'.';
+							return null;
 						} else {
 							o += "an unknown role and team type.";
-							return ""; //hiding unknown assignment
+							return null; //hiding unknown assignment
 						}
 					}
 					break;
@@ -365,7 +380,7 @@ parseLogEvent = function(g, e) {
 				case 4:
 					o += g.playerNameList[e['actors'][0]] + ' roles TODO!';
 					break;
-				default: 
+				default:
 					o += "role count assignment error!";
 					break;
 			}
@@ -422,7 +437,19 @@ parseLogEvent = function(g, e) {
 			o += '';
 			break;
 		case '@LK':
-			o += '';
+			//TODO, WIP
+			var actor = "The town";
+			if (e.hasOwnProperty("actors")) {
+				actor = g.playerNameList[e.actors[0]] + " the Judge";
+			}
+			var target = 'someone';
+			var target2 = 'they';
+			if (e.hasOwnProperty('targets')) {
+				target = g.playerNameList[e.targets[0]];
+				target2 = target;
+			}
+			var resolution = '';
+			return actor + " decided to lynch " + target + resolution + ".";
 			break;
 		case '@KK':
 			o += '';
@@ -500,26 +527,41 @@ parseLogEvent = function(g, e) {
 			o += '';
 			break;
 		case '@WR':
-			o += '';
-			break;
+			if (e.hasOwnProperty('actors')) {
+				return listPrint(e.actors, g.playerNameList, '') + " are the Witches.";
+			} else {
+				return null;
+			}
 		case '@JSR1':
-			o += '';
-			break;
+			if (e.hasOwnProperty('targets')) {
+				return listPrint(e.targets, g.playerNameList, '') + " are the Junior Witches and Village Spies.";
+			} else {
+				return null;
+			}
 		case '@JSR2':
-			o += '';
-			break;
+			if (e.hasOwnProperty('targets')) {
+				return listPrint(e.targets, g.playerNameList, '') + " are the Junior Witches and Village Spies.";
+			} else {
+				return null;
+			}
 		case '@WLR':
 			o += '';
 			break;
 		case '@JR':
-			o += '';
-			break;
+			if (e.hasOwnProperty('actors')) {
+				return listPrint(e.actors, g.playerNameList, '') + " are the Junior Witches.";
+			} else {
+				return null;
+			}
 		case '@TR':
 			o += '';
 			break;
 		case '@SR':
-			o += '';
-			break;
+			if (e.hasOwnProperty('actors')) {
+				return listPrint(e.actors, g.playerNameList, '') + " are the Village Spies.";
+			} else {
+				return null;
+			}
 		case '@KGR':
 			o += '';
 			break;

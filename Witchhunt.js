@@ -34,7 +34,7 @@ if (Meteor.isClient) {
 					} else if (g.moderatorID == Meteor.userId()) {
 							Meteor.subscribe('game_mod', Session.get("gid"));
 							Meteor.subscribe('game_mod_log', Session.get("gid"));
-					}					
+					}
 				}
 			}
 		}
@@ -165,6 +165,12 @@ if (Meteor.isClient) {
 			}
 			return Games.find({gid: Session.get("gid")});
 		},
+		"is_admin": function() {
+			if (Meteor.user() == null) {
+				return false;
+			}
+			return adminNames.indexOf(Meteor.user().username) != -1;
+		},
 		"is_cpi": function() {
 			if (Meteor.user() == null) {
 				return false;
@@ -207,23 +213,23 @@ if (Meteor.isClient) {
 		},
 
 		"is_mod": function() {
-			return (this.moderatorID != null && 
+			return (this.moderatorID != null &&
 					this.moderatorID == Meteor.userId());
 		},
 		"can_join": function() {
-			return (Meteor.userId() != null && 
-					this.currentPhase == "Signup" && 
-					this.playerIDList.length < this.maxPlayerCount && 
-					this.playerIDList.indexOf(Meteor.userId()) == -1 && 
+			return (Meteor.userId() != null &&
+					this.currentPhase == "Signup" &&
+					this.playerIDList.length < this.maxPlayerCount &&
+					this.playerIDList.indexOf(Meteor.userId()) == -1 &&
 					this.moderatorID != Meteor.userId());
 		},
 		"can_leave": function() {
-			return (Meteor.userId() != null && 
-					this.currentPhase == "Signup" && 
+			return (Meteor.userId() != null &&
+					this.currentPhase == "Signup" &&
 					this.playerIDList.indexOf(Meteor.userId()) != -1);
 		},
 		"is_signup": function() {
-			return(this.moderatorID == Meteor.userId() && 
+			return(this.moderatorID == Meteor.userId() &&
 					this.currentPhase == "Signup");
 		}
 	});
@@ -253,10 +259,10 @@ if (Meteor.isClient) {
 			Meteor.call("debugPopulateGame", this.gid);
 		},
 		"click .setup-game-base": function(event) {
-			Meteor.call("setupGame", this.gid, {roleList: baseSetDefaultRoleList, maxPlayerCount: 15, expansionList: []});
+			Meteor.call("setupGame", this.gid, {roleListList: baseSetDefaultRoleList, maxPlayerCount: 20, expansionList: []});
 		},
 		"click .setup-game-halftime": function(event) {
-			Meteor.call("setupGame", this.gid, {roleList: halftimeDefaultRoleList, maxPlayerCount: 25, expansionList: [0]});
+			Meteor.call("setupGame", this.gid, {roleListList: halftimeDefaultRoleList, maxPlayerCount: 30, expansionList: [0]});
 		},
 		"click .step-game": function(event) {
 			Meteor.call("step", this.gid, false);
@@ -316,8 +322,8 @@ if (Meteor.isClient) {
 
 	Template.player.helpers({
 		"is_mod": function() {
-			return (Session.equals("sandboxUsername", null) && 
-					Template.parentData(1).moderatorID != null && 
+			return (Session.equals("sandboxUsername", null) &&
+					Template.parentData(1).moderatorID != null &&
 					Template.parentData(1).moderatorID == Meteor.userId());
 		},
 		"player_readout": function() {
@@ -369,7 +375,7 @@ if (Meteor.isClient) {
 
 			var myNewTargetList = t.t.slice();
 			myNewTargetList[myIndex] = myNewValue;
-			if (myNewValue != 77) { //non-unique value?  swap with old location
+			if (myNewValue != 77) { //non-unique value? swap with old location
 				var myOldValue = t.t[myIndex];
 				for (var i = 0; i < t.t.length; i++) {
 					if (i != myIndex && t.t[i] == event.target.value) {
@@ -476,7 +482,7 @@ if (Meteor.isServer) {
 				Log.find({gid: gid, p: {$size:0}}, {fields: {p: 0}}),
 				Targets.find({gid: gid, p: {$size:0}}, {fields: {p: 0}})];
 	});
-	Meteor.publish("game_finished", function(gid) {		
+	Meteor.publish("game_finished", function(gid) {
 		var g = Games.findOne({gid: gid});
 		if ((!g) || g.winner == null) {
 			return [];
@@ -487,7 +493,7 @@ if (Meteor.isServer) {
 	Meteor.publish("game_player", function(gid, username) {
 		//gets the Player object for a given player, including their permissionsKey
 		var cursor = Games.find({gid: gid, 'private.playerList.username': username},
-						  {fields: {moderatorID: 1, 'private.playerList.$': 1}});
+		                        {fields: {moderatorID: 1, 'private.playerList.$': 1}});
 		if (!cursor.count()) {
 			return cursor;
 		}
@@ -498,14 +504,14 @@ if (Meteor.isServer) {
 			}
 		}
 		return cursor;
-	});	
+	});
 	Meteor.publish("game_player_permissions", function(gid, username, key) {
 		//gets the permissions list for a given player, after verifying their key is correct
 		if (gid == null || key == null) {
 			return [];
 		}
 		var g = Games.findOne({gid: gid, 'private.playerList.username': username},
-						      {fields: {moderatorID: 1, 'private.playerList.$': 1}});
+		                      {fields: {moderatorID: 1, 'private.playerList.$': 1}});
 		if (g == undefined) {
 			return [];
 		}
@@ -522,7 +528,7 @@ if (Meteor.isServer) {
 			return [];
 		}
 		var g = Games.findOne({gid: gid, 'private.playerList.username': username},
-						      {fields: {moderatorID: 1, 'private.playerList.$': 1}});
+		                      {fields: {moderatorID: 1, 'private.playerList.$': 1}});
 		if (g == undefined) {
 			return [];
 		}
@@ -530,7 +536,7 @@ if (Meteor.isServer) {
 			if (g.private.playerList[0].userId != this.userId) {
 				return [];
 			}
-			var key = g.private.playerList[0].permissionsKey;		
+			var key = g.private.playerList[0].permissionsKey;
 			var correctPermissionsList = PermissionsLists.findOne({gid: gid, key: key}).pl;
 			for (var index in permissionsList) {
 				if (correctPermissionsList.indexOf(permissionsList[index]) == -1) {

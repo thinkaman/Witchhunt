@@ -52,9 +52,9 @@ Meteor.methods({
 				throw new Meteor.Error("not-authorized");
 			}
 			u = Meteor.users.findOne({username: overrideUsername},{username: 1, emails: 1, prefList: 1});
-			if (u == null) { //we need to make a new user account				
+			if (u == null) { //we need to make a new user account
 				if (Meteor.isServer) { //server makes a real new account
-					var new_id = Accounts.createUser({username: overrideUsername, password: overrideUsername});				
+					var new_id = Accounts.createUser({username: overrideUsername, password: overrideUsername});
 					u = Meteor.users.findOne({_id: new_id});
 				} else { //client has to make a temp dummy user
 					u = {u_id: "dummyID", username: overrideUsername, prefList: []};
@@ -94,7 +94,7 @@ Meteor.methods({
 		if (overrideUsername != null) {
 			if (userID != g.moderatorID) {
 				throw new Meteor.Error("not-authorized");
-			}			
+			}
 			if (g.playerNameList.indexOf(overrideUsername) == -1) {
 				throw new Meteor.Error("username-not-in-game");
 			}
@@ -137,7 +137,7 @@ Meteor.methods({
 					}
 					updateGameDict[key] = Math.floor(value);
 					break;
-				case "roleList":
+				case "roleListList":
 					check(value, Array);
 					for (var index = 2; index < value.length; index++) {
 						if (value[index].length != value[1].length) {
@@ -240,7 +240,7 @@ Meteor.methods({
 				return null;
 			} else {
 				var my_cp = stepScheduleNextDict[g.currentPhase];							//sets the next full phase
-				var my_sl = stepScheduleDict[my_cp].slice();	//copy a fresh stepList for the new phase				
+				var my_sl = stepScheduleDict[my_cp].slice();	//copy a fresh stepList for the new phase
 				myStepName = my_sl[0];
 
 				updateGameDict['currentPhase'] = my_cp;
@@ -269,7 +269,6 @@ Meteor.methods({
 				}
 			}
 		}
-
 		if (myStep.skip != undefined && myStep.skip != null) {	//if step has a skip function...
 			if (myStep.skip(g)) {	//...that evals to true...
 				skip = true;		//...set flag to not eval step.
@@ -297,7 +296,10 @@ Meteor.methods({
 		} catch (error) {
 			throw error;
 		}
-		if (stepResult != null) { //steps return a stepResult object with many possible instructions.  Let's handle them:
+		if (stepResult != null) { //steps return a stepResult object with many possible instructions. Let's handle them:
+			for (var index in stepResult.removeTargetList) {
+				Targets.remove(stepResult.removeTargetList[index]);
+			}
 			for (var tag in stepResult.changeTargetDict) {
 				try {
 					Meteor.call("changeTarget", gid, tag, stepResult.changeTargetDict[tag], null);
@@ -312,14 +314,23 @@ Meteor.methods({
 				}
 				Targets.update(tuple[0], tuple[1], {multi: true});
 			}
+			for (var index in stepResult.addTargetList) { //add stuff last so not overwritten by changes
+				Targets.insert(stepResult.addTargetList[index]);
+			}
 			for (var key in stepResult.updateGameDict) {
 				updateGameDict[key] = stepResult.updateGameDict[key];
-				if ('private.playerList' in stepResult.updateGameDict) {
-					g.private.playerList = updateGameDict['private.playerList'];
+				if (key.indexOf('.') == -1) {
+					g[key] = updateGameDict[key]; //quickly update baseline game object for permissions
 				}
 			}
+			if ('private.playerList' in stepResult.updateGameDict) {
+				g.private.playerList = updateGameDict['private.playerList']; //for gameStart permissions
+			}
+			if ('private.covenList' in stepResult.updateGameDict) {
+				g.private.covenList = updateGameDict['private.covenList']; //for subchannel updating
+			}
 			for (var key in stepResult.subchannelUpdateDict) {
-				var pid_list = stepResult.subchannelUpdateDict;
+				var pid_list = getSubchannelMembers(g, stepResult.subchannelUpdateDict[key]);
 				var old_subchannel = g.private.currentSubchannelDict[key];
 				var new_subchannel = old_subchannel + 1
 				updateGameDict['private.currentSubchannelDict.' + key] = new_subchannel;
@@ -327,24 +338,15 @@ Meteor.methods({
 				for (var index in pid_list) {
 					var pid = pid_list[index];
 					var permissionsKey = g.private.playerList[pid].permissionsKey;
+					if (pid in updatePermissionsKeyDict) {
+						permissionsKey = updatePermissionsKeyDict[pid];
+					}
 					if (!(permissionsKey in permissionsUpdateDict)) {
 						permissionsUpdateDict[permissionsKey] = [];
 					}
-					permissionsUpdateDict[permissionsKey].push(key + new_subchannel);
+					permissionsUpdateDict[permissionsKey].push('g' + key + new_subchannel);
 				}
 				Targets.update({gid: gid, p: (key + old_subchannel)}, {$set: {p: (key + new_subchannel)}}, {multi: true});
-			}
-			for (var pid in stepResult.updatePermissionsKeyDict) {
-				var old_key = g.private.playerList[pid].permissionsKey;
-				var new_key = stepResult.updatePermissionsKeyDict[old_key];
-				if (old_key != new_key) {
-					updateGameDict['private.playerList.' + pid + '.permissionsKey'] = new_key;
-					var old_pl = PermissionsLists.findOne({gid: gid, key: old_key}).pl;
-					PermissionsLists.update({gid: gid, key: new_key}, {$addToSet: {pl: {$each: old_pl}}});
-				}
-			}
-			if (Object.keys(updateGameDict)) {
-				Games.update({gid: gid}, {$set: updateGameDict});
 			}
 			for (var index in stepResult.eventList) {
 				var eventArgsDict = stepResult.eventList[index];
@@ -371,6 +373,22 @@ Meteor.methods({
 					PermissionsLists.update({gid: gid, key: key}, {$addToSet: {pl: {$each: new_pl}}});
 				}
 			}
+			for (var pid in stepResult.updatePermissionsKeyDict) {
+				var old_key = g.private.playerList[pid].permissionsKey;
+				var new_key = stepResult.updatePermissionsKeyDict[old_key];
+				if (old_key != new_key) {
+					updateGameDict['private.playerList.' + pid + '.permissionsKey'] = new_key;
+					var old_pl = PermissionsLists.findOne({gid: gid, key: old_key}).pl;
+					PermissionsLists.update({gid: gid, key: new_key}, {$addToSet: {pl: {$each: old_pl}}});
+				}
+			}
+			for (var i = 0; i < stepResult.insertStepList.length; i++) {
+				var newStepString = stepResult.insertStepList[i];
+				updateGameDict['private.stepList.' + -(i+1)] = newStepString; //such hacks, many mongo cheats, wow
+			}
+			if (Object.keys(updateGameDict)) {
+				Games.update({gid: gid}, {$set: updateGameDict});
+			}
 			if (stepResult.permissionsPool) { //pool permissions
 				//first compute all of our bilateral relationships
 				var requirementsDict = {};
@@ -395,19 +413,21 @@ Meteor.methods({
 							}
 						}
 					}
-
 				}
 				//next check if anyone has only one half of a relationship, and add the other if so
 				var myPermissionsLists = PermissionsLists.find({gid: gid}).fetch();
 				for (var index in myPermissionsLists) {
 					var myKey = myPermissionsLists[index].key;
 					var myPermissionList = myPermissionsLists[index].pl;
-					for (var master in requirementsDict) {
+					var masterList = Object.keys(requirementsDict).sort();
+					for (var i = 0; i < masterList.length; i++) {
+						var master = masterList[i];
 						if (myPermissionList.indexOf(master) != -1) { //has master--check if missing any slaves
 							var missingSlaveList = [];
 							for (var slaveIndex in requirementsDict[master]) {
 								var slave = requirementsDict[master][slaveIndex];
 								if (myPermissionList.indexOf(slave) == -1) {
+									myPermissionList.push(slave);
 									missingSlaveList.push(slave);
 								}
 							}
@@ -439,7 +459,7 @@ Meteor.methods({
 				PermissionsLists.update({gid: gid, key: 'angelsDelayed'}, {$set: {pl: []}});
 				PermissionsLists.update({gid: gid, key: 'demonsDelayed'}, {$set: {pl: []}});
 				//logs
-				Log.update({gid: g.gid, p: 'td'},   {$pull: {p:   'td'}}, {multi: true});
+				Log.update({gid: g.gid, p: 'td'},   {$pull: {p: 'td'}}, {multi: true});
 				Log.update({gid: g.gid, p: 'tdxa'}, {$set:  {"p.$": 'xa'}}, {multi: true});
 				Log.update({gid: g.gid, p: 'tdxd'}, {$set:  {"p.$": 'xd'}}, {multi: true});
 			}
@@ -453,7 +473,7 @@ Meteor.methods({
 					}
 				}
 			}
-			for (var index in stepResult.messagePostList) { 
+			for (var index in stepResult.messagePostList) {
 				//TODO
 			}
 			if (advance) {

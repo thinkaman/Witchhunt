@@ -6,9 +6,11 @@
 	<h1>Welcome to Meteor!</h1>
 	{{> loginButtons}}
 	<ul>
-		{{#if is_cpi}}
+		{{#if is_admin}}
 			<button id="create-game">Create Game</button>
-			<button id="clear-all">Clear All Games</button>
+			{{#if is_cpi}}
+				<button id="clear-all">Clear All Games</button>
+			{{/if}}
 			<form class="sandbox">
 				<input type="text" name="text" placeholder="user sandbox"/>
 			</form>
@@ -38,8 +40,8 @@
 				<button class="debug-populate-game">Debug Populate</button>
 				<button class="setup-game-base">Base Set</button>
 				<button class="setup-game-halftime">Halftime</button>
+				<button class="advance-game">Advance</button>
 			{{/if}}
-			<button class="advance-game">Advance</button>
 		{{/if}}
 	</li>
 </template>
@@ -50,9 +52,9 @@
 	{{#each players}}
 		{{>player}}
 	{{/each}}
-	{{#each targets}}
+	<!--{{#each targets}}
 		{{> target}}
-	{{/each}}
+	{{/each}}-->
 	{{#each log_events}}
 		{{> log_event}}
 	{{/each}}
@@ -60,7 +62,7 @@
 
 <template name="player">
 	{{#if is_mod}}
-		<p>{{username}} permissions: {{player_permissions}}</p>
+		<!--<p>{{username}} permissions: {{player_permissions}}</p>-->
 	{{else}}
 		{{#each player_cards}}
 			{{>player_card}}
