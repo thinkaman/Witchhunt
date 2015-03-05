@@ -2,8 +2,17 @@ parseLogEvent = function(g, e) {
 	var o = '';
 	switch(e['tag']) {
 		case '$ACO':
-			o += '';
-			break;
+			var actor = "The Acolyte";
+			if (e.hasOwnProperty("actors")) {
+				actor = g.playerNameList[e.actors[0]] + " the Acolyte";
+			} else {
+				return null;
+			}
+			var target = 'someone';
+			if (e.hasOwnProperty('targets')) {
+				target = g.playerNameList[e.targets[0]];
+			}
+			return actor + " learned that " + target + " is the Priest.";
 		case '$ADM':
 			o += '';
 			break;

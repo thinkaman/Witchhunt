@@ -255,16 +255,16 @@ Meteor.methods({
 
 		if (masterRoleList.indexOf(myStepName) != -1) { //if step is a character
 			skip = true //unless we find it
-			for (var index in g.roleListList) {
-				if (g.roleListList[index].indexOf(masterRoleList.indexOf(myStepName)) != -1) {
+			for (var index in g.private.playerRoleListList) {
+				if (g.private.playerRoleListList[index].indexOf(masterRoleList.indexOf(myStepName)) != -1) {
 					skip = false; //we found it
 				}
 			}
 		}
 		if (masterRoleList.indexOf(myStepName.slice(0,-2)) != -1) { //ditto, for sometihng like Fanatic-2 or Apprentice-J
 			skip = true
-			for (var index in g.roleListList) {
-				if (g.roleListList[index].indexOf(masterRoleList.indexOf(myStepName.slice(0,-2))) != -1) {
+			for (var index in g.private.playerRoleListList) {
+				if (g.private.playerRoleListList[index].indexOf(masterRoleList.indexOf(myStepName.slice(0,-2))) != -1) {
 					skip = false;
 				}
 			}

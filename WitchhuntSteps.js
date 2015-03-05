@@ -85,6 +85,10 @@ stepDict = {
 				myRoleAssignments.push([]);
 				myTeamAssignments.push(null);
 			}
+			
+			if (playerCount < 17) {
+				myRoleListList[0].pop();
+			}	
 
 			//make sure all neutral role lists are the correct length
 			var targetRoleTotal = (playerCount - myRoleListList[0].length) * roleCount;
@@ -123,12 +127,7 @@ stepDict = {
 			shuffle(myTeamList);
 
 			//randomly deal holy characters
-			//while (myRoleListList[0].length)
-			var pid = needsCards.shift();
-			myRoleAssignments[pid] = [myRoleListList[0].shift()];
-			myTeamAssignments[pid] = 1;
-			myTeamCountDict[1] += 0;
-			if (playerCount >= 17) { //hack
+			while (myRoleListList[0].length) {
 				var pid = needsCards.shift();
 				myRoleAssignments[pid] = [myRoleListList[0].shift()];
 				myTeamAssignments[pid] = 1;
