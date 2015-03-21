@@ -85,10 +85,10 @@ stepDict = {
 				myRoleAssignments.push([]);
 				myTeamAssignments.push(null);
 			}
-
+			
 			if (playerCount < 17) {
 				myRoleListList[0].pop();
-			}
+			}	
 
 			//make sure all neutral role lists are the correct length
 			var targetRoleTotal = (playerCount - myRoleListList[0].length) * roleCount;
@@ -170,8 +170,8 @@ stepDict = {
 				myTeamAssignments[pid] = myTeamList.shift();
 			}
 
-			var hasPTom = g.roleListList[1].indexOf(masterRoleList.indexOf("Peeping Tom")) != -1;
-			var hasPTim = g.roleListList[1].indexOf(masterRoleList.indexOf("Peeping Tim")) != -1;
+			var hasPTom = g.roleListList[1].indexOf(masterRoleList.indexOf("Peeping Tom"));
+			var hasPTim = g.roleListList[1].indexOf(masterRoleList.indexOf("Peeping Tim"));
 			if (hasPTom || hasPTim) {
 				var peasantList = [];
 				var offensiveList = [];
@@ -184,15 +184,17 @@ stepDict = {
 						peasantList.push(pid);
 						p = true;
 					}
-					if (roleCategoryList[myRoleAssignments[pid][0]] == masterCategoryList.indexOf("Offensive")) {
-						offensiveList.push(pid);
-						if (p) {
-							hasOffensivePeasant = true;
-						}
-					} else if (roleCategoryList[myRoleAssignments[pid][0]] == masterCategoryList.indexOf("Defensive")) {
-						defensiveList.push(pid);
-						if (p) {
-							hasDefensivePeasant = true;
+					if (myTeamAssignments[pid] != 1) { //if not holy
+						if (roleCategoryList[myRoleAssignments[pid][0]] == masterCategoryList.indexOf("Offensive")) {
+							offensiveList.push(pid);
+							if (p) {
+								hasOffensivePeasant = true;
+							}
+						} else if (roleCategoryList[myRoleAssignments[pid][0]] == masterCategoryList.indexOf("Defensive")) {
+							defensiveList.push(pid);
+							if (p) {
+								hasDefensivePeasant = true;
+							}
 						}
 					}
 				}

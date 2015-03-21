@@ -143,8 +143,6 @@ masterRoleList =   ["Priest",
                     "Admiral",
                     "Vampire Hunter"];      //index 58
 
-baseSetDefaultRoleList = [[0,12],[1,4,7,8,2,5,6,11,9,3,10,13,18,20,16,17,14,19]];
-
 abbrevRoleList =   ["P",
                     "J",
                     "DOB",
