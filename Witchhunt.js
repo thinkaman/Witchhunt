@@ -347,7 +347,7 @@ if (Meteor.isClient) {
 
 	Template.player_card.helpers({
 		"player_card_uri": function() {
-			return '/img/' + this.toLowerCase().replace(' ', '') + "_web.png";
+			return '/img/' + this.toLowerCase().replace(/\s+/g, '') + "_web.png";
 		},
 	});
 
