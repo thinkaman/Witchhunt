@@ -1,1 +1,67 @@
-/* CSS declarations go here */
+body {
+  background-color: #1b3147;
+  color: #FFFFFF; }
+
+h1 {
+  text-align: center; }
+
+@media (min-width: 800px) {
+  #login-buttons {
+    position: fixed;
+    width: 10vw;
+    right: 2vw; }
+    #login-buttons .login-link-text {
+      position: absolute;
+      right: 0; }
+    #login-buttons .accounts-dialog {
+      width: 10vw; } }
+@media (max-width: 800px) {
+  #login-buttons {
+    width: 80vw;
+    margin: 0 auto;
+    text-align: center; } }
+#login-buttons .login-link-text {
+  border-radius: 3px;
+  padding: 3px;
+  margin: 3px;
+  color: #FFFFFF;
+  font-weight: bolder;
+  background-color: #0c2032;
+  text-decoration: none; }
+
+#admin-panel {
+  text-align: center; }
+  @media (min-width: 600px) {
+    #admin-panel {
+      width: 450px;
+      margin: 0 auto; } }
+
+button {
+  border-radius: 3px;
+  border-color: #1b3147;
+  color: orange;
+  background-color: #1b3147; }
+
+.games-list {
+  list-style-type: none;
+  width: 20vw; }
+  .games-list li {
+    border-radius: 3px;
+    border: 1px solid #0c2032;
+    background-color: #0c2032;
+    margin: 2px;
+    position: relative; }
+    .games-list li .immerse {
+      border: none;
+      position: absolute;
+      right: 10%;
+      height: 80%;
+      top: 10%;
+      width: 30%;
+      font-size: 200%; }
+  @media (max-width: 600px) {
+    .games-list {
+      width: 80vw;
+      margin: 0 auto; } }
+
+/*# sourceMappingURL=witchhunt.css.map */

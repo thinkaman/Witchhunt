@@ -1,12 +1,13 @@
 <head>
 	<title>Witchhunt</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 
 <body>
 	<h1>Witchhunt GDC Test!</h1>
 	{{> loginButtons}}
-	<ul>
-		{{#if is_admin}}
+	{{#if is_admin}}
+		<div id="admin-panel">
 			<button id="create-game">Create Game</button>
 			{{#if is_cpi}}
 				<button id="clear-all">Clear All Games</button>
@@ -14,15 +15,23 @@
 			<form class="sandbox">
 				<input type="text" name="text" placeholder="user sandbox"/>
 			</form>
-			{{/if}}
+		</div>
+	{{/if}}
+	{{> game_list }}
+	{{#if is_immersed}}
+		{{#each game_selected}}
+			{{>game_panel}}
+		{{/each}}
+	{{/if}}
+</body>
+
+<template name="game_list">
+	<ul class="games-list">
 		{{#each game_dir}}
 			{{> game_dir_entry}}
 		{{/each}}
-		{{#each game_selected}}
-			{{> game_panel}}
-		{{/each}}
 	</ul>
-</body>
+</template>
 
 <template name="game_dir_entry">
 	<li><p class="game-dir-line">{{description}}</p>
@@ -30,6 +39,7 @@
 			<button class="join-game">Join</button>
 		{{/if}}
 		{{#if can_leave}}
+			<button class="immerse">&gt;</button>
 			<button class="leave-game">Leave</button>
 		{{/if}}
 		{{#if is_mod}}
@@ -47,17 +57,19 @@
 </template>
 
 <template name="game_panel">
-	<p>{{description}}</p>
-	<p>{{data}}</p>
-	{{#each players}}
-		{{>player}}
-	{{/each}}
-	<!--{{#each targets}}
-		{{> target}}
-	{{/each}}-->
-	{{#each log_events}}
-		{{> log_event}}
-	{{/each}}
+	<div class="game-panel">
+		<p>{{description}}</p>
+		<p>{{data}}</p>
+		<!--{{#each players}}
+			{{>player}}
+		{{/each}}-->
+		<!--{{#each targets}}
+			{{> target}}
+		{{/each}}-->
+		{{#each log_events}}
+			{{> log_event}}
+		{{/each}}
+	</div>
 </template>
 
 <template name="player">
