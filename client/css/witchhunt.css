@@ -64,4 +64,28 @@ button {
       width: 80vw;
       margin: 0 auto; } }
 
+.cards {
+  position: relative; }
+  .cards .card {
+    width: 85vw;
+    height: 133.57143vw;
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0; }
+  .cards .top-card {
+    position: relative;
+    text-align: center;
+    border: 1px solid orange;
+    background-color: #0c2032; }
+  .cards .card.shown {
+    opacity: 1; }
+
+.back {
+  position: absolute;
+  top: 15vh;
+  left: 0;
+  font-size: 20px;
+  border: 1px solid orange; }
+
 /*# sourceMappingURL=witchhunt.css.map */

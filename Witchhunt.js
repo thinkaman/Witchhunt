@@ -237,6 +237,11 @@ if (Meteor.isClient) {
 					this.currentPhase == "Signup" &&
 					this.playerIDList.indexOf(Meteor.userId()) != -1);
 		},
+		"is_in": function () {
+			return (Meteor.userId() !== null && (
+							this.moderatorID === Meteor.userId() ||
+							this.playerIDList.indexOf(Meteor.userId() !== -1)));
+		},
 		"is_signup": function() {
 			return(this.moderatorID == Meteor.userId() &&
 					this.currentPhase == "Signup");
@@ -251,7 +256,7 @@ if (Meteor.isClient) {
 			//The logic behind this if statement is that clicking control elements
 			//might not mean you're "focusing" it, but just doing some management.
 			var tag = event.target.tagName;
-			if (tag !== 'INPUT' && tag !== 'BUTTON') Session.set("gid", this.gid);  
+			if (tag !== 'INPUT' && tag !== 'BUTTON') Session.set("gid", this.gid);
 		},
 		"click .join-game": function(event) {
 			Meteor.call("joinGame", this.gid, null);
@@ -338,6 +343,12 @@ if (Meteor.isClient) {
 		},
 	});
 
+	Template.game_panel.events({
+		"click .back" : function() {
+			Session.set("insideGame", false);
+		}
+	})
+
 	Template.player.helpers({
 		"is_mod": function() {
 			return (Session.equals("sandboxUsername", null) &&
@@ -362,6 +373,20 @@ if (Meteor.isClient) {
 			}
 		},
 	});
+
+	Template.player.events({
+		"click .cards" : function(e) {
+			var cards = $(e.target).parents('.cards');
+			var shown = cards.children('.shown');
+			shown.removeClass('shown');
+			shown.next().addClass('shown');
+
+			//last element
+			if (shown.next().length === 0) {
+				cards.children('.card:first').addClass('shown');
+			}
+		}
+	})
 
 	Template.player_card.helpers({
 		"player_card_uri": function() {

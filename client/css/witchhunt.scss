@@ -85,3 +85,34 @@ button {
 		margin: 0 auto;
 	}
 }
+
+.cards {
+	$width: 85vw;
+	position: relative;
+	.card {
+		width: $width;
+		height: 11/7 * $width;
+		position: absolute;
+		top: 0; left: 0;
+		opacity: 0;
+	}
+
+	.top-card {
+		position:relative;
+		text-align: center;
+		border: 1px solid $yellow;
+		background-color: $darkblue
+	}
+
+	.card.shown {
+		opacity: 1;
+	}
+}
+
+.back {
+	position: absolute;
+	top: 15vh; left: 0;
+	font-size: 20px;
+	border: 1px solid $yellow;
+
+}

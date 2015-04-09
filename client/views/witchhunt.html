@@ -38,8 +38,10 @@
 		{{#if can_join}}
 			<button class="join-game">Join</button>
 		{{/if}}
-		{{#if can_leave}}
+		{{#if is_in}}
 			<button class="immerse">&gt;</button>
+		{{/if}}
+		{{#if can_leave}}
 			<button class="leave-game">Leave</button>
 		{{/if}}
 		{{#if is_mod}}
@@ -58,11 +60,12 @@
 
 <template name="game_panel">
 	<div class="game-panel">
+		<button class="back">&lt; Back</button>
 		<p>{{description}}</p>
 		<p>{{data}}</p>
-		<!--{{#each players}}
+		{{#each players}}
 			{{>player}}
-		{{/each}}-->
+		{{/each}}
 		<!--{{#each targets}}
 			{{> target}}
 		{{/each}}-->
@@ -74,16 +77,29 @@
 
 <template name="player">
 	{{#if is_mod}}
-		<!--<p>{{username}} permissions: {{player_permissions}}</p>-->
+		<p>{{username}} permissions: {{player_permissions}}</p>
 	{{else}}
-		{{#each player_cards}}
+		<div class="cards">
+			<div class="card shown top-card">
+				<h2>Cards hidden</h2>
+				<p>
+					Click to reveal cards
+				</p>
+				<p>
+					Keep clicking to cycle through all cards.
+				</p>
+			</div>
+			{{#each player_cards}}
+			<div class="card">
 			{{>player_card}}
-		{{/each}}
+			</div>
+			{{/each}}
+		</div>
 	{{/if}}
 </template>
 
 <template name="player_card">
-	<img src="{{player_card_uri}}">
+	<img class="player-card" src="{{player_card_uri}}">
 </template>
 
 <template name="target">
