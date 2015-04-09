@@ -12,6 +12,7 @@ Game = function(gameName, moderatorID, moderatorName) {
 	this.moderatorName = moderatorName;
 	this.playerIDList = []; //length serves as maxPlayerCount
 	this.playerNameList = [];
+	this.playerSeatList = []; //all (living and dead) player IDs in seating order
 	this.maxPlayerCount = 20;
 	this.roleListList = baseSetDefaultRoleList; //length serves as roleCount
 	this.teamCountDict = {};
@@ -122,6 +123,21 @@ Target = function(gid, tag, pid, subchannel) {
 		this[key] = value;
 	}
 	return this;
+}
+
+getPlayerNameSeatList = function(g) {
+	//returns a list of player names with parenthetical seat numbers attached
+	//i.e. "Dave (seat 3)"
+	var myList = [];
+	for (var pid = 0; pid < g.playerIDList.length; pid++) {
+		var seat = g.playerSeatList.indexOf(pid);
+		if (seat == -1) {
+			myList.push(g.playerNameList[pid]);
+		} else {
+			myList.push(g.playerNameList[pid] + ' (seat ' + seat + ')');
+		}
+	}
+	return myList;
 }
 
 getLegalTargetList = function(g, t) {

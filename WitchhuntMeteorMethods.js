@@ -71,11 +71,13 @@ Meteor.methods({
 		if (g.playerIDList.length >= g.maxPlayerCount) {
 			throw new Meteor.Error("game-full");
 		}
+		var pid = g.playerIDList.length;
 		if (Meteor.isClient) {
 			Session.set("gid", g.gid);
 		}
 		Games.update(g._id, {$push: {playerIDList: userID}});
 		Games.update(g._id, {$push: {playerNameList: username}});
+		Games.update(g._id, {$push: {playerSeatList: pid}});
 		Games.update(g._id, {$push: {userAccounts: u}});
 	},
 	leaveGame: function(gid, overrideUsername) {
@@ -91,11 +93,14 @@ Meteor.methods({
 		if (g == null) {
 			throw new Meteor.Error("game-does-not-exist");
 		}
+		var pid = null;
 		if (overrideUsername != null) {
 			if (userID != g.moderatorID) {
 				throw new Meteor.Error("not-authorized");
 			}
-			if (g.playerNameList.indexOf(overrideUsername) == -1) {
+			u = Meteor.users.findOne({username: overrideUsername},{username: 1, emails: 1, prefList: 1});
+			pid = g.playerNameList.indexOf(overrideUsername);
+			if (pid == -1) {
 				throw new Meteor.Error("username-not-in-game");
 			}
 			userID = g.playerIDList[g.playerNameList.indexOf(overrideUsername)];
@@ -109,6 +114,8 @@ Meteor.methods({
 		}
 		Games.update(g._id, {$pull: {playerIDList: userID}});
 		Games.update(g._id, {$pull: {playerNameList: username}});
+		Games.update(g._id, {$pull: {playerSeatList: pid}});
+		Games.update(g._id, {$pull: {userAccounts: u}});
 	},
 	setupGame: function(gid, updateGameDict) {
 		check(gid, Number);

@@ -1,5 +1,29 @@
-parseLogEvent = function(g, e) {
-	var o = '';
+parseLogEvent = function(g, e, seat) {
+	var targetString = 'some';
+	var nameList = g.playerNameList;
+	if (seat) {
+		nameList = getPlayerNameSeatList(g);
+	}
+	var actors = null;
+	var actorsPreface = '';
+	var actorsSomeone = 'someone';
+	var actorsThey = 'they';
+	if (e.hasOwnProperty("actors")) {
+		actors = listPrint(e.actors, nameList, '');
+		actorsPreface = actors + ' ';
+		actorsSomeone = actors;
+		actorsThey = actors;
+	}
+	var targets = null;
+	var targetsPreface = '';
+	var targetsSomeone = 'someone';
+	var targetsThey = 'they';
+	if (e.hasOwnProperty('targets')) {
+		targets = listPrint(e.targets, nameList, '');
+		targetsPreface = targets + ' ';
+		targetsSomeone = targets;
+		targetsThey = targets;
+	}
 	switch(e['tag']) {
 		case '$ACO':
 			var actor = "The Acolyte";
@@ -634,7 +658,7 @@ parseLogEvent = function(g, e) {
 		default:
 			break;
 	}
-	return o;
+	return null;
 }
 
 function listPrint(list, dict, prefix) {
@@ -649,13 +673,13 @@ function listPrint(list, dict, prefix) {
 		oxford = ',';
 	}
 	while (list.length > 2) {
-		output += prefix + dict[list.shift()] + ', ';
-	}
-	if (list.length == 2) {
-		output += prefix + dict[list.shift()] + oxford + ' and ';
-	}
-	if (list.length) {
-		output += prefix + dict[list.shift()];
+		var index = list.shift();
+		output += prefix + dict[index];
+		if (list.length > 1) {
+			output += ', ';
+		} else if (list.length == 1) {
+			output += oxford + ' and ';
+		}
 	}
 	return output;
 }
