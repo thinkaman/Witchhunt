@@ -156,9 +156,6 @@ if (Meteor.isClient) {
 	});
 
 	Template.body.helpers({
-		"game_dir": function() {
-			return Games.find();
-		},
 		"game_selected": function() {
 			if (Session.get("gid") == null) {
 				return [];
@@ -177,6 +174,9 @@ if (Meteor.isClient) {
 			}
 			return Meteor.user().username == "cpi";
 		},
+		"is_immersed": function() {
+			return Session.get('insideGame');
+		},
 	});
 
 	Template.body.events({
@@ -194,6 +194,15 @@ if (Meteor.isClient) {
 			} else {
 				Session.set("sandboxUsername", username);
 			}
+		},
+	});
+
+	Template.game_list.helpers({
+		"game_dir": function() {
+			if ($(window).width() < 800 && Session.get('insideGame')) {
+				return [];
+			}
+			return Games.find({}, {'sort': {'gid' : 1}});
 		},
 	});
 
@@ -228,21 +237,35 @@ if (Meteor.isClient) {
 					this.currentPhase == "Signup" &&
 					this.playerIDList.indexOf(Meteor.userId()) != -1);
 		},
+		"is_in": function () {
+			return (Meteor.userId() !== null && (
+							this.moderatorID === Meteor.userId() ||
+							this.playerIDList.indexOf(Meteor.userId() !== -1)));
+		},
 		"is_signup": function() {
 			return(this.moderatorID == Meteor.userId() &&
 					this.currentPhase == "Signup");
+		},
+		"is_focused": function() {
+			return (Session.get("gid") === this.gid);
 		}
 	});
 
 	Template.game_dir_entry.events({
-		"click .game-dir-line": function(event) {
-			Session.set("gid", this.gid);
+		"click li": function(event) {
+			//The logic behind this if statement is that clicking control elements
+			//might not mean you're "focusing" it, but just doing some management.
+			var tag = event.target.tagName;
+			if (tag !== 'INPUT' && tag !== 'BUTTON') Session.set("gid", this.gid);
 		},
 		"click .join-game": function(event) {
 			Meteor.call("joinGame", this.gid, null);
 		},
 		"click .leave-game": function(event) {
 			Meteor.call("leaveGame", this.gid, null);
+		},
+		"click .immerse": function(event) {
+			Session.set("insideGame", true);
 		},
 		"submit .add-player": function(event) {
 			event.preventDefault();
@@ -320,6 +343,12 @@ if (Meteor.isClient) {
 		},
 	});
 
+	Template.game_panel.events({
+		"click .back" : function() {
+			Session.set("insideGame", false);
+		}
+	})
+
 	Template.player.helpers({
 		"is_mod": function() {
 			return (Session.equals("sandboxUsername", null) &&
@@ -344,6 +373,20 @@ if (Meteor.isClient) {
 			}
 		},
 	});
+
+	Template.player.events({
+		"click .cards" : function(e) {
+			var cards = $(e.target).parents('.cards');
+			var shown = cards.children('.shown');
+			shown.removeClass('shown');
+			shown.next().addClass('shown');
+
+			//last element
+			if (shown.next().length === 0) {
+				cards.children('.card:first').addClass('shown');
+			}
+		}
+	})
 
 	Template.player_card.helpers({
 		"player_card_uri": function() {
