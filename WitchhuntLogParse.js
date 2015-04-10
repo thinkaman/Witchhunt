@@ -1,4 +1,5 @@
 parseLogEvent = function(g, e, seat) {
+	var o = '';
 	var targetString = 'some';
 	var nameList = g.playerNameList;
 	if (seat) {
@@ -394,6 +395,7 @@ parseLogEvent = function(g, e, seat) {
 						} else {
 							o += " the " + masterRoleList[e['roleIndex1']] + " on an unknown team.";
 						}
+						return o;
 					} else {
 						if (e.hasOwnProperty('teamIndex')) {
 							o += "an unknown role as a " + masterTeamDict[e['teamIndex']] +'.';
@@ -561,19 +563,19 @@ parseLogEvent = function(g, e, seat) {
 			break;
 		case '@WR':
 			if (e.hasOwnProperty('actors')) {
-				return listPrint(e.actors, g.playerNameList, '') + " are the Witches.";
+				return listPrint(e.actors, nameList, '') + " are the Witches.";
 			} else {
 				return null;
 			}
 		case '@JSR1':
 			if (e.hasOwnProperty('targets')) {
-				return listPrint(e.targets, g.playerNameList, '') + " are the Junior Witches and Village Spies.";
+				return listPrint(e.targets, nameList, '') + " are the Junior Witches and Village Spies.";
 			} else {
 				return null;
 			}
 		case '@JSR2':
 			if (e.hasOwnProperty('targets')) {
-				return listPrint(e.targets, g.playerNameList, '') + " are the Junior Witches and Village Spies.";
+				return listPrint(e.targets, nameList, '') + " are the Junior Witches and Village Spies.";
 			} else {
 				return null;
 			}
@@ -582,7 +584,7 @@ parseLogEvent = function(g, e, seat) {
 			break;
 		case '@JR':
 			if (e.hasOwnProperty('actors')) {
-				return listPrint(e.actors, g.playerNameList, '') + " are the Junior Witches.";
+				return listPrint(e.actors, nameList, '') + " are the Junior Witches.";
 			} else {
 				return null;
 			}
@@ -591,7 +593,7 @@ parseLogEvent = function(g, e, seat) {
 			break;
 		case '@SR':
 			if (e.hasOwnProperty('actors')) {
-				return listPrint(e.actors, g.playerNameList, '') + " are the Village Spies.";
+				return listPrint(e.actors, nameList, '') + " are the Village Spies.";
 			} else {
 				return null;
 			}
@@ -662,6 +664,7 @@ parseLogEvent = function(g, e, seat) {
 }
 
 function listPrint(list, dict, prefix) {
+	list = list.slice();
 	if (!prefix) {
 		prefix = '';
 	} else {
@@ -672,7 +675,7 @@ function listPrint(list, dict, prefix) {
 	if (list.length > 2) {
 		oxford = ',';
 	}
-	while (list.length > 2) {
+	while (list.length) {
 		var index = list.shift();
 		output += prefix + dict[index];
 		if (list.length > 1) {

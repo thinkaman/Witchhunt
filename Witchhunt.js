@@ -98,21 +98,28 @@ if (Meteor.isClient) {
 				}
 			}
 		} else { //gid == null
-			var g = Games.findOne({moderatorID: Meteor.userId()},{sort: {createdAt: -1}});
-			if (g != undefined) {
-				Session.set("gid", g.gid);
+			if (true) { //temp behavior
 				Session.set("pid", null);
 				Session.set("permissionsKey", null);
 				Session.set("permissionsList", null);
 				Session.set("myLog", []);
-			} else {
-				g = Games.findOne({playerIDList: Meteor.userId()},{sort: {createdAt: -1}});
+			} else { //should only do this if first time on page
+				var g = Games.findOne({moderatorID: Meteor.userId()},{sort: {createdAt: -1}});
 				if (g != undefined) {
-					Session.set("gid", g.gid);
-					Session.set("pid", g.playerIDList.indexOf(Meteor.userId()));
+					//Session.set("gid", g.gid);
+					Session.set("pid", null);
 					Session.set("permissionsKey", null);
 					Session.set("permissionsList", null);
 					Session.set("myLog", []);
+				} else {
+					g = Games.findOne({playerIDList: Meteor.userId()},{sort: {createdAt: -1}});
+					if (g != undefined) {
+						//Session.set("gid", g.gid);
+						Session.set("pid", g.playerIDList.indexOf(Meteor.userId()));
+						Session.set("permissionsKey", null);
+						Session.set("permissionsList", null);
+						Session.set("myLog", []);
+					}
 				}
 			}
 		}
@@ -175,7 +182,7 @@ if (Meteor.isClient) {
 			return Meteor.user().username == "cpi";
 		},
 		"is_immersed": function() {
-			return Session.get('insideGame');
+			return !Session.equals('gid', null);
 		},
 	});
 
@@ -199,7 +206,7 @@ if (Meteor.isClient) {
 
 	Template.game_list.helpers({
 		"game_dir": function() {
-			if ($(window).width() < 800 && Session.get('insideGame')) {
+			if ($(window).width() < 800 && !Session.equals('gid', null)) {
 				return [];
 			}
 			return Games.find({}, {'sort': {'gid' : 1}});
@@ -252,20 +259,14 @@ if (Meteor.isClient) {
 	});
 
 	Template.game_dir_entry.events({
-		"click li": function(event) {
-			//The logic behind this if statement is that clicking control elements
-			//might not mean you're "focusing" it, but just doing some management.
-			var tag = event.target.tagName;
-			if (tag !== 'INPUT' && tag !== 'BUTTON') Session.set("gid", this.gid);
+		"click .immerse": function(event) {
+			Session.set("gid", this.gid);
 		},
 		"click .join-game": function(event) {
 			Meteor.call("joinGame", this.gid, null);
 		},
 		"click .leave-game": function(event) {
 			Meteor.call("leaveGame", this.gid, null);
-		},
-		"click .immerse": function(event) {
-			Session.set("insideGame", true);
 		},
 		"submit .add-player": function(event) {
 			event.preventDefault();
@@ -345,7 +346,7 @@ if (Meteor.isClient) {
 
 	Template.game_panel.events({
 		"click .back" : function() {
-			Session.set("insideGame", false);
+			Session.set("gid", null);
 		}
 	})
 

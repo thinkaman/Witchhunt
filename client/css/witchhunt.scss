@@ -69,6 +69,9 @@ button {
 		background-color: $darkblue;
 		margin: 2px;
 		position: relative;
+		.description {
+
+		}
 		.immerse {
 			border: none;
 			position: absolute;
@@ -77,6 +80,9 @@ button {
 			top: 10%;
 			width: 30%;
 			font-size: 200%;
+		}
+		.controls {
+
 		}
 	}
 

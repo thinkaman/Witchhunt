@@ -25,7 +25,7 @@ Meteor.methods({
 		var g = new Game(null, Meteor.userId() , Meteor.user().username);
 		Games.insert(g);
 		if (Meteor.isClient) {
-			Session.set("gid", g.gid);
+			//Session.set("gid", g.gid);
 		}
 	},
 	clearAll: function() {
