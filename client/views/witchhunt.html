@@ -4,29 +4,86 @@
 </head>
 
 <body>
-	<h1>Witchhunt</h1>
-	{{> loginButtons}}
-	{{#if is_admin}}
-		<div id="admin-panel">
-			<button id="create-game">Create Game</button>
-			{{#if is_cpi}}
-				<button id="clear-all">Clear All Games</button>
+	{{#with game_selected}}
+		<button class="back">&lt; Back</button>
+		{{#if is_game_signup}}
+			{{> pregame_status_page}}
+		{{else}}
+			{{#if is_current_page_game_status}}
+				{{> game_status_page}}
 			{{/if}}
-			<form class="sandbox">
-				<input type="text" name="text" placeholder="user sandbox"/>
-			</form>
+			{{#if is_current_page_game_log}}
+				{{> game_log_page}}
+			{{/if}}
+			{{#if is_current_page_player_cards}}
+				{{> player_cards_page}}
+			{{/if}}
+			{{#if is_current_page_player_choice}}
+				{{> player_choice_page}}
+			{{/if}}
+			{{#if is_current_page_mod_prompt}}
+				{{> mod_prompt_page}}
+			{{/if}}
+			{{#if is_current_page_mod_choice}}
+				{{> mod_choice_page}}
+			{{/if}}
+			{{> fixed_footer}}
+		{{/if}}
+	{{else}}
+		<h1>Witchhunt</h1>
+		<div id="login_container">
+			{{> loginButtons}}
+			{{#if is_admin}}
+				<form class="sandbox">
+					<input type="text" name="text" placeholder="user sandbox"/>
+				</form>
+			{{/if}}
 		</div>
-	{{/if}}
-	{{> game_list }}
-	{{#if is_immersed}}
-		{{#each game_selected}}
-			{{>game_panel}}
-		{{/each}}
-	{{/if}}
+		{{> game_list_page}}
+	{{/with}}
 </body>
 
-<template name="game_list">
+<template name="fixed_footer">
+	{{#if game_started}}
+		{{#if is_mod}}
+			<div id="fixed_footer">
+				<button id="mod_prompt_page_button" class="footer-button footer-button-left">Prompt</button>
+				<button id="mod_choice_page_button" class="footer-button footer-button-mid">Choice</button>
+				<button id="game_log_page_button" class="footer-button footer-button-mid">Log</button>
+				<button id="game_status_page_button" class="footer-button footer-button-right">Status</button>
+			</div>
+		{{else}}
+			{{#if is_player}}
+			<div id="fixed_footer">
+				<button id="player_cards_page_button" class="footer-button footer-button-left">Cards</button>
+				<button id="player_choice_page_button" class="footer-button footer-button-mid">Choice</button>
+				<button id="game_log_page_button" class="footer-button footer-button-mid">Log</button>
+				<button id="game_status_page_button" class="footer-button footer-button-right">Status</button>
+			</div>
+			{{else}}
+				<!--none-->
+			{{/if}}
+		{{/if}}
+	{{else}}
+		{{#if is_mod}}
+			<!--none-->
+		{{else}}
+			<!--none-->
+		{{/if}}
+	{{/if}}
+</template>
+
+<!--begin game_list_page-->
+<template name="game_list_page">
 	<ul class="games-list">
+		{{#if is_admin}}
+			<div id="admin-panel">
+				<button id="create-game">Create Game</button>
+				{{#if is_cpi}}
+					<button id="clear-all">Clear All Games</button>
+				{{/if}}
+			</div>
+		{{/if}}
 		{{#each game_dir}}
 			{{> game_dir_entry}}
 		{{/each}}
@@ -41,73 +98,114 @@
 		{{#if is_in}}
 			<button class="immerse">&gt;</button>
 		{{/if}}
-		{{#if can_leave}}
-			<button class="leave-game">Leave</button>
-		{{/if}}
 		{{#if is_mod}}
 			{{#if is_signup}}
-				<form class="add-player">
-					<input type="text" name="text" placeholder="Add username"/>
-				</form>
-				<button class="debug-populate-game">Debug Populate</button>
-				<button class="setup-game-base">Base Set</button>
-				<button class="setup-game-halftime">Halftime</button>
-				<button class="advance-game">Advance</button>
 			{{/if}}
 		{{/if}}
 	</li>
 </template>
+<!--end game_list_page-->
 
-<template name="game_panel">
-	<div class="game-panel">
-		<button class="back">&lt; Back</button>
+<!--begin pregame_status_page-->
+<template name="pregame_status_page">
+	<div class="page">
+		<p>Players: {{player_count}}/{{maxPlayerCount}}</p>
+		<ul>
+			{{#each playerNameList}}
+				<li>{{.}}</li>
+			{{/each}}
+		</ul>
+		{{#if can_leave}}
+			<button class="leave-game">Leave</button>
+		{{/if}}
+		{{#if is_mod}}
+			<form class="add-player">
+				<input type="text" name="text" placeholder="Add username"/>
+			</form>
+			<div id="pregame_controls">
+				<button class="debug-populate-game">Debug Populate</button>
+				<button class="setup-game-base">Base Set</button>
+				<button class="setup-game-halftime">Halftime</button>
+				<button class="advance-game">Advance</button>
+			</div>
+		{{/if}}
+	</div>
+</template>
+<!--end pregame_status_page-->
+
+<!--begin game_status_page-->
+<template name="game_status_page">
+	<div class="page">
+		<p>game_status_page dummy text</p>
 		<p>{{description}}</p>
 		<p>{{data}}</p>
-		{{#each players}}
-			{{>player}}
-		{{/each}}
-		<!--{{#each targets}}
-			{{> target}}
-		{{/each}}-->
+	</div>
+</template>
+<!--end game_status_page-->
+
+<!--begin game_log_page-->
+<template name="game_log_page">
+	<div class="page">
+		{{#if is_mod}}
+			{{#each players}}
+				<p>{{username}} permissions: {{player_permissions}}</p>
+			{{/each}}
+		{{/if}}
 		{{#each log_events}}
 			{{> log_event}}
 		{{/each}}
 	</div>
 </template>
 
-<template name="player">
-	{{#if is_mod}}
-		<p>{{username}} permissions: {{player_permissions}}</p>
-	{{else}}
-		<div class="cards">
-			<div class="card shown top-card">
-				<h2>Cards hidden</h2>
-				<p>
-					Click to reveal cards
-				</p>
-				<p>
-					Keep clicking to cycle through all cards.
-				</p>
+<template name="log_event">
+	<p>{{log_parse}}</p>
+</template>
+<!--end game_log_page-->
+
+<!--begin player_cards_page-->
+<template name="player_cards_page">
+	<div class="page">
+		{{#with player}}
+			<div class="cards">
+				<div class="card shown top-card">
+					<h2>Cards hidden</h2>
+					<p>
+						Click to reveal cards
+					</p>
+					<p>
+						Keep clicking to cycle through all cards.
+					</p>
+				</div>
+				{{#each player_cards}}
+					<div class="card">
+						{{> player_card}}
+					</div>
+				{{/each}}
 			</div>
-			{{#each player_cards}}
-			<div class="card">
-			{{>player_card}}
-			</div>
-			{{/each}}
-		</div>
-	{{/if}}
+		{{/with}}
+	</div>
 </template>
 
 <template name="player_card">
 	<img class="player-card" src="{{player_card_uri}}">
 </template>
+<!--end player_cards_page-->
+
+<!--begin player_choice_page-->
+<template name="player_choice_page">
+	<div class="page">
+		{{#each targets}}
+			{{> target}}
+		{{/each}}
+	</div>
+</template>
 
 <template name="target">
 	<p>
-	<span>Target: {{tag}} </span>
-	{{#each target_list}}
-		{{> target_selector}}
-	{{/each}}
+		<span>Target: {{tag}} </span>
+		{{#each target_list}}
+			{{> target_selector}}
+		{{/each}}
 	</p>
 </template>
 
@@ -122,7 +220,22 @@
 <template name="target_selector_option">
 	<option value={{this}} selected={{selected}}>{{text}}</option>
 </template>
+<!--end player_choice_page-->
 
-<template name="log_event">
-	<p>{{log_parse}}</p>
+<!--begin mod_prompt_page-->
+<template name="mod_prompt_page">
+	<div class="page">
+		<p>mod_prompt_page dummy text</p>
+	</div>
 </template>
+<!--end mod_prompt_page-->
+
+<!--begin mod_choice_page-->
+<template name="mod_choice_page">
+	<div class="page">
+		{{#each targets}}
+			{{> target}}
+		{{/each}}
+	</div>
+</template>
+<!--end mod_choice_page-->

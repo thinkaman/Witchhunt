@@ -10,6 +10,9 @@ if (Meteor.isClient) {
 	Session.setDefault("permissionsKey", null);
 	Session.setDefault("permissionsList", null);
 	Session.setDefault("myLog", []); //unpacked log events for current gid
+
+	Session.set("page", null); //keeps track of which page to show, when within a game
+
 	Session.setDefault("sandboxUsername", null); //override username for permissions
 
 	Accounts.ui.config({
@@ -96,8 +99,18 @@ if (Meteor.isClient) {
 						}
 					}
 				}
+				if (Session.equals("page", null) && g.currentPhase != "Signup") {
+					if (g.moderatorID === Meteor.userId()) {
+						Session.set("page", "mod_prompt");
+					} else if (pid != -1) {
+						Session.set("page", "player_cards");
+					} else {
+						Session.set("page", "game_status");
+					}
+				}
 			}
 		} else { //gid == null
+			Session.set("page", null);
 			if (true) { //temp behavior
 				Session.set("pid", null);
 				Session.set("permissionsKey", null);
@@ -162,37 +175,86 @@ if (Meteor.isClient) {
 		}
 	});
 
+	//global helpers
+	Template.registerHelper("is_admin", function() {
+		if (Meteor.user() == null) {
+			return false;
+		}
+		return adminNames.indexOf(Meteor.user().username) != -1;
+	});
+	Template.registerHelper("is_cpi", function() {
+		if (Meteor.user() == null) {
+			return false;
+		}
+		return Meteor.user().username == "cpi";
+	});
+	Template.registerHelper("is_mod", function() {
+		return (this.moderatorID != null &&
+				this.moderatorID == Meteor.userId());
+	});
+	Template.registerHelper("is_player", function() {
+		return (this.moderatorID != null &&
+				this.playerIDList.indexOf(Meteor.userId() !== -1));
+	});
+	Template.registerHelper("game_started", function() {
+		return this.currentPhase != "Signup";
+	});
+	Template.registerHelper("context", function() {
+		return this.moderatorID;
+	});
+	Template.registerHelper("players", function() {
+		if (this.private != undefined) {
+			return this.private.playerList;
+		} else {
+			return [];
+		}
+	});
+	Template.registerHelper("player_count", function() {
+		return this.playerNameList.length;
+	});
+	Template.registerHelper("targets", function() {
+		return Targets.find({gid: this.gid, locked: 0});
+	});
+	Template.registerHelper("target_list", function() {
+		var myList = [];
+		for (var index in this.t) {
+			myList.push({gid: this.gid, tag: this.tag, index: index, value: this.t[index]});
+		}
+		return myList;
+	});
+
+
 	Template.body.helpers({
 		"game_selected": function() {
 			if (Session.get("gid") == null) {
-				return [];
-			}
-			return Games.find({gid: Session.get("gid")});
-		},
-		"is_admin": function() {
-			if (Meteor.user() == null) {
 				return false;
 			}
-			return adminNames.indexOf(Meteor.user().username) != -1;
+			return Games.findOne({gid: Session.get("gid")});
 		},
-		"is_cpi": function() {
-			if (Meteor.user() == null) {
-				return false;
-			}
-			return Meteor.user().username == "cpi";
+		"is_game_signup": function() {
+			return this.currentPhase == "Signup";
 		},
-		"is_immersed": function() {
-			return !Session.equals('gid', null);
+		"is_current_page_game_status": function() {
+			return Session.equals("page", "game_status");
+		},
+		"is_current_page_game_log": function() {
+			return Session.equals("page", "game_log");
+		},
+		"is_current_page_player_cards": function() {
+			return Session.equals("page", "player_cards");
+		},
+		"is_current_page_player_choice": function() {
+			return Session.equals("page", "player_choice");
+		},
+		"is_current_page_mod_prompt": function() {
+			return Session.equals("page", "mod_prompt");
+		},
+		"is_current_page_mod_choice": function() {
+			return Session.equals("page", "mod_choice");
 		},
 	});
 
 	Template.body.events({
-		"click #create-game": function(event) {
-			Meteor.call("createGame");
-		},
-		"click #clear-all": function(event) {
-			Meteor.call("clearAll");
-		},
 		"submit .sandbox": function(event) {
 			event.preventDefault();
 			var username = event.target.text.value;
@@ -202,14 +264,53 @@ if (Meteor.isClient) {
 				Session.set("sandboxUsername", username);
 			}
 		},
+		"click .back" : function() {
+			Session.set("gid", null);
+		},
 	});
 
-	Template.game_list.helpers({
+	Template.fixed_footer.helpers({
+
+	});
+
+	Template.fixed_footer.events({
+		"click #mod_prompt_page_button": function(event) {
+			Session.set("page", "mod_prompt");
+		},
+		"click #mod_choice_page_button": function(event) {
+			Session.set("page", "mod_choice");
+		},
+		"click #player_cards_page_button": function(event) {
+			Session.set("page", "player_cards");
+		},
+		"click #player_choice_page_button": function(event) {
+			Session.set("page", "player_choice");
+		},
+		"click #game_log_page_button": function(event) {
+			Session.set("page", "game_log");
+		},
+		"click #game_status_page_button": function(event) {
+			Session.set("page", "game_status");
+		},
+	});
+
+//begin page templates
+//begin game_list_page
+	Template.game_list_page.helpers({
 		"game_dir": function() {
 			if ($(window).width() < 800 && !Session.equals('gid', null)) {
 				return [];
 			}
 			return Games.find({}, {'sort': {'gid' : 1}});
+		},
+	});
+
+	Template.game_list_page.events({
+		"click #create-game": function(event) {
+			Meteor.call("createGame");
+		},
+		"click #clear-all": function(event) {
+			Meteor.call("clearAll");
 		},
 	});
 
@@ -228,21 +329,12 @@ if (Meteor.isClient) {
 			return myDescription;
 		},
 
-		"is_mod": function() {
-			return (this.moderatorID != null &&
-					this.moderatorID == Meteor.userId());
-		},
 		"can_join": function() {
 			return (Meteor.userId() != null &&
 					this.currentPhase == "Signup" &&
 					this.playerIDList.length < this.maxPlayerCount &&
 					this.playerIDList.indexOf(Meteor.userId()) == -1 &&
 					this.moderatorID != Meteor.userId());
-		},
-		"can_leave": function() {
-			return (Meteor.userId() != null &&
-					this.currentPhase == "Signup" &&
-					this.playerIDList.indexOf(Meteor.userId()) != -1);
 		},
 		"is_in": function () {
 			return (Meteor.userId() !== null && (
@@ -265,6 +357,18 @@ if (Meteor.isClient) {
 		"click .join-game": function(event) {
 			Meteor.call("joinGame", this.gid, null);
 		},
+	});
+//end game_list_page
+
+//begin pregame_status_page
+	Template.pregame_status_page.helpers({
+		"can_leave": function() {
+			return (Meteor.userId() != null &&
+					this.currentPhase == "Signup" &&
+					this.playerIDList.indexOf(Meteor.userId()) != -1);
+		},
+	});
+	Template.pregame_status_page.events({
 		"click .leave-game": function(event) {
 			Meteor.call("leaveGame", this.gid, null);
 		},
@@ -295,8 +399,10 @@ if (Meteor.isClient) {
 			Meteor.call("step", this.gid, true);
 		},
 	});
+//end pregame_status_page
 
-	Template.game_panel.helpers({
+//begin game_status_page
+	Template.game_status_page.helpers({
 		"description": function() {
 			if (this == null) {
 				return "";
@@ -329,35 +435,44 @@ if (Meteor.isClient) {
 			var myData = this.stepList;
 			return myData;
 		},
-		"players": function() {
-			if (this.private != undefined) {
-				return this.private.playerList;
-			} else {
-				return [];
-			}
-		},
-		"targets": function() {
-			return Targets.find({gid: this.gid, locked: 0});
-		},
+	});
+	Template.game_status_page.events({
+
+	});
+//end game_status_page
+
+//begin game_log_page
+	Template.game_log_page.helpers({
 		"log_events": function() {
 			return Session.get("myLog");
 		},
-	});
-
-	Template.game_panel.events({
-		"click .back" : function() {
-			Session.set("gid", null);
-		}
-	})
-
-	Template.player.helpers({
-		"is_mod": function() {
-			return (Session.equals("sandboxUsername", null) &&
-					Template.parentData(1).moderatorID != null &&
-					Template.parentData(1).moderatorID == Meteor.userId());
+		"player_permissions": function() {
+			var myList = PermissionsLists.findOne({gid: Template.parentData(1).gid, key: this.permissionsKey});
+			if (myList != null) {
+				return myList.pl;
+			}
 		},
-		"player_readout": function() {
-			return this.username + ': \t' + masterRoleList[this.roleList[0]] + ' \t' + masterTeamDict[this.team];
+	});
+	Template.game_log_page.events({
+
+	});
+	Template.log_event.helpers({
+		"log_parse": function() {
+			if (this != null && this != undefined) {
+				return parseLogEvent(Template.parentData(1), this);
+			}
+		},
+	});
+//end game_log_page
+
+//begin player_cards_page
+	Template.player_cards_page.helpers({
+		"player": function() {
+			if (this.private.playerList.length == 1) {
+				return this.private.playerList[0];
+			} else {
+				return this.private.playerList[Session.get('pid')];
+			}
 		},
 		"player_cards": function() {
 			var card_list = [];
@@ -367,15 +482,11 @@ if (Meteor.isClient) {
 			}
 			return card_list;
 		},
-		"player_permissions": function() {
-			var myList = PermissionsLists.findOne({gid: Template.parentData(1).gid, key: this.permissionsKey});
-			if (myList != null) {
-				return myList.pl;
-			}
+		"player_readout": function() {
+			return this.username + ': \t' + masterRoleList[this.roleList[0]] + ' \t' + masterTeamDict[this.team];
 		},
 	});
-
-	Template.player.events({
+	Template.player_cards_page.events({
 		"click .cards" : function(e) {
 			var cards = $(e.target).parents('.cards');
 			var shown = cards.children('.shown');
@@ -386,31 +497,27 @@ if (Meteor.isClient) {
 			if (shown.next().length === 0) {
 				cards.children('.card:first').addClass('shown');
 			}
-		}
-	})
-
+		},
+	});
 	Template.player_card.helpers({
 		"player_card_uri": function() {
 			return '/img/' + this.toLowerCase().replace(/\s+/g, '') + "_web.png";
 		},
 	});
+//end player_cards_page
 
-	Template.target.helpers({
-		"target_list": function() {
-			var myList = [];
-			for (var index in this.t) {
-				myList.push({gid: this.gid, tag: this.tag, index: index, value: this.t[index]});
-			}
-			return myList;
-		},
-	}),
+//begin player_choice_page
+	Template.player_choice_page.helpers({
 
+	});
+	Template.player_choice_page.events({
+
+	});
 	Template.target_selector.helpers({
 		"legal_inputs": function() {
 			return getLegalTargetList(Template.parentData(2), Template.parentData(1));
 		},
 	}),
-
 	Template.target_selector.events({
 		"change .target-selector": function(event) {
 			var t = Template.parentData(1);
@@ -440,7 +547,6 @@ if (Meteor.isClient) {
 			Meteor.call("changeTarget", t.gid, t.tag, myFinalTargetList, t.active);
 		},
 	}),
-
 	Template.target_selector_option.helpers({
 		"selected": function() {
 			return this == Template.parentData(1).value;
@@ -486,14 +592,26 @@ if (Meteor.isClient) {
 			}
 		},
 	}),
+//end player_choice_page
 
-	Template.log_event.helpers({
-		"log_parse": function() {
-			if (this != null && this != undefined) {
-				return parseLogEvent(Template.parentData(1), this);
-			}
-		},
+//begin mod_prompt_page
+	Template.mod_prompt_page.helpers({
+
 	});
+	Template.mod_prompt_page.events({
+
+	});
+//end mod_prompt_page
+
+//begin mod_choice_page
+	Template.mod_choice_page.helpers({
+
+	});
+	Template.mod_choice_page.events({
+
+	});
+//end mod_choice_page
+
 }
 
 if (Meteor.isServer) {
@@ -604,4 +722,5 @@ if (Meteor.isServer) {
 				Targets.find({gid: gid}, {fields: {p: 0}}),
 				PermissionsLists.find({gid: gid}, {fields: {p: 0}})];
 	});
+//end all pages
 }

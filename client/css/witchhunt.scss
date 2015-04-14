@@ -1,7 +1,11 @@
 $yellow: rgb(255, 165, 0);
-$text-color: #FFFFFF;
 $darkblue: #0c2032;
 $lightblue: rgb(27, 49, 71);
+$topheader: 30px;
+
+
+$text-color: #FFFFFF;
+$footer-background: $darkblue;
 
 body {
 	background-color: $lightblue;
@@ -12,7 +16,14 @@ h1 {
 	text-align: center;
 }
 
+#login_container {
+	min-height: 30px;
+}
+
 #login-buttons {
+	font-size: 1.5em;
+	float: left;
+
 	@media (min-width: 800px) {
 		$width: 10vw;
 		position: fixed;
@@ -53,9 +64,50 @@ h1 {
 	text-align: center;
 }
 
+.page {
+	padding-top: $topheader + 8px;
+}
+
+#fixed_footer {
+	position:fixed;
+	left:0px;
+	bottom:0px;
+	height: 50px;
+	width: 100vw;
+	background: $footer-background;
+	.footer-button {
+		width: 25vw;
+		height: 25vw;
+		max-height: 64px;
+		margin: 0 -2px;
+		padding: 0;
+		border-width: 6px 3px;
+		border-radius: 0;
+		border-style: none;
+	}
+	.footer-button-left {
+		border-left-style: none;
+		border-right-style: solid;
+		border-top-style: solid;
+		border-bottom-style: none;
+	}
+	.footer-button-mid {
+		border-left-style: solid;
+		border-right-style: solid;
+		border-top-style: solid;
+		border-bottom-style: none;
+	}
+	.footer-button-right {
+		border-left-style: solid;
+		border-right-style: none;
+		border-top-style: solid;
+		border-bottom-style: none;
+	}
+}
+
 button {
 	border-radius: 3px;
-	border-color: $lightblue;
+	border-color: $darkblue;
 	color: $yellow;
 	background-color: $lightblue;
 }
@@ -117,8 +169,10 @@ button {
 
 .back {
 	position: absolute;
-	top: 15vh; left: 0;
-	font-size: 20px;
+	height: $topheader;
+	top: 1vh;
+	left: 1vh;
+	font-size: 1.5em;
 	border: 1px solid $yellow;
 
 }

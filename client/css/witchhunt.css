@@ -5,29 +5,35 @@ body {
 h1 {
   text-align: center; }
 
-@media (min-width: 800px) {
-  #login-buttons {
-    position: fixed;
-    width: 10vw;
-    right: 2vw; }
-    #login-buttons .login-link-text {
-      position: absolute;
-      right: 0; }
-    #login-buttons .accounts-dialog {
-      width: 10vw; } }
-@media (max-width: 800px) {
-  #login-buttons {
-    width: 80vw;
-    margin: 0 auto;
-    text-align: center; } }
-#login-buttons .login-link-text {
-  border-radius: 3px;
-  padding: 3px;
-  margin: 3px;
-  color: #FFFFFF;
-  font-weight: bolder;
-  background-color: #0c2032;
-  text-decoration: none; }
+#login_container {
+  min-height: 30px; }
+
+#login-buttons {
+  font-size: 1.5em;
+  float: left; }
+  @media (min-width: 800px) {
+    #login-buttons {
+      position: fixed;
+      width: 10vw;
+      right: 2vw; }
+      #login-buttons .login-link-text {
+        position: absolute;
+        right: 0; }
+      #login-buttons .accounts-dialog {
+        width: 10vw; } }
+  @media (max-width: 800px) {
+    #login-buttons {
+      width: 80vw;
+      margin: 0 auto;
+      text-align: center; } }
+  #login-buttons .login-link-text {
+    border-radius: 3px;
+    padding: 3px;
+    margin: 3px;
+    color: #FFFFFF;
+    font-weight: bolder;
+    background-color: #0c2032;
+    text-decoration: none; }
 
 #admin-panel {
   text-align: center; }
@@ -36,9 +42,44 @@ h1 {
       width: 450px;
       margin: 0 auto; } }
 
+.page {
+  padding-top: 38px; }
+
+#fixed_footer {
+  position: fixed;
+  left: 0px;
+  bottom: 0px;
+  height: 50px;
+  width: 100vw;
+  background: #0c2032; }
+  #fixed_footer .footer-button {
+    width: 25vw;
+    height: 25vw;
+    max-height: 64px;
+    margin: 0 -2px;
+    padding: 0;
+    border-width: 6px 3px;
+    border-radius: 0;
+    border-style: none; }
+  #fixed_footer .footer-button-left {
+    border-left-style: none;
+    border-right-style: solid;
+    border-top-style: solid;
+    border-bottom-style: none; }
+  #fixed_footer .footer-button-mid {
+    border-left-style: solid;
+    border-right-style: solid;
+    border-top-style: solid;
+    border-bottom-style: none; }
+  #fixed_footer .footer-button-right {
+    border-left-style: solid;
+    border-right-style: none;
+    border-top-style: solid;
+    border-bottom-style: none; }
+
 button {
   border-radius: 3px;
-  border-color: #1b3147;
+  border-color: #0c2032;
   color: orange;
   background-color: #1b3147; }
 
@@ -83,9 +124,10 @@ button {
 
 .back {
   position: absolute;
-  top: 15vh;
-  left: 0;
-  font-size: 20px;
+  height: 30px;
+  top: 1vh;
+  left: 1vh;
+  font-size: 1.5em;
   border: 1px solid orange; }
 
 /*# sourceMappingURL=witchhunt.css.map */
