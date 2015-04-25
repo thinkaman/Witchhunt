@@ -101,7 +101,7 @@ if (Meteor.isClient) {
 				}
 				if (Session.equals("page", null) && g.currentPhase != "Signup") {
 					if (g.moderatorID === Meteor.userId()) {
-						Session.set("page", "mod_prompt");
+						Session.set("page", "player_cards"); //TODO - change, temporary
 					} else if (pid != -1) {
 						Session.set("page", "player_cards");
 					} else {

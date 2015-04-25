@@ -86,7 +86,7 @@ stepDict = {
 				myTeamAssignments.push(null);
 			}
 
-			if (playerCount < 17) {
+			if (playerCount < 17  && g.expansionList.length == 0) { //small base set games have no second holy
 				myRoleListList[0].pop();
 			}
 
@@ -358,7 +358,7 @@ stepDict = {
 					case 2:
 						mixedJuniorPIDs.push(pid);
 						break;
-					case -3:
+					case -4:
 						warlockPIDs.push(pid);
 						break;
 					default:

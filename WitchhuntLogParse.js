@@ -580,8 +580,11 @@ parseLogEvent = function(g, e, seat) {
 				return null;
 			}
 		case '@WLR':
-			o += '';
-			break;
+			if (e.hasOwnProperty('targets')) {
+				return listPrint(e.targets, nameList, '') + " are the Warlocks, though they do not know one another.";
+			} else {
+				return null;
+			}
 		case '@JR':
 			if (e.hasOwnProperty('actors')) {
 				return listPrint(e.actors, nameList, '') + " are the Junior Witches.";
@@ -589,8 +592,11 @@ parseLogEvent = function(g, e, seat) {
 				return null;
 			}
 		case '@TR':
-			o += '';
-			break;
+			if (e.hasOwnProperty('actors')) {
+				return listPrint(e.actors, nameList, '') + " are the Traitors.";
+			} else {
+				return null;
+			}
 		case '@SR':
 			if (e.hasOwnProperty('actors')) {
 				return listPrint(e.actors, nameList, '') + " are the Village Spies.";
@@ -598,14 +604,20 @@ parseLogEvent = function(g, e, seat) {
 				return null;
 			}
 		case '@KGR':
-			o += '';
-			break;
+			if (e.hasOwnProperty('actors')) {
+				return listPrint(e.actors, nameList, '') + " are the Village Knights.";
+			} else {
+				return null;
+			}
 		case '@KGR2':
 			o += '';
 			break;
 		case '@LR':
-			o += '';
-			break;
+			if (e.hasOwnProperty('actors')) {
+				return listPrint(e.actors, nameList, '') + " are a pair of Village Lovers.";
+			} else {
+				return null;
+			}
 		case '@TVR':
 			o += '';
 			break;
