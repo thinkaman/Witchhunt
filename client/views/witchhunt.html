@@ -56,9 +56,9 @@
 			{{#if is_player}}
 			<div id="fixed_footer">
 				<button id="player_cards_page_button" class="footer-button footer-button-left">Cards</button>
-				<button id="player_choice_page_button" class="footer-button footer-button-mid">Choice</button>
+				<button id="player_choice_page_button" class="footer-button footer-button-mid disabled" disabled>Choice</button>
 				<button id="game_log_page_button" class="footer-button footer-button-mid">Log</button>
-				<button id="game_status_page_button" class="footer-button footer-button-right">Status</button>
+				<button id="game_status_page_button" class="footer-button footer-button-right disabled" disabled>Status</button>
 			</div>
 			{{else}}
 				<!--none-->
@@ -126,6 +126,8 @@
 				<button class="debug-populate-game">Debug Populate</button>
 				<button class="setup-game-base">Base Set</button>
 				<button class="setup-game-halftime">Halftime</button>
+				<button class="setup-game-kingscourt">King's Court</button>
+				<button class="setup-game-loveandwar">Love and War</button>
 				<button class="advance-game">Advance</button>
 			</div>
 		{{/if}}
@@ -146,11 +148,11 @@
 <!--begin game_log_page-->
 <template name="game_log_page">
 	<div class="page">
-		{{#if is_mod}}
+		<!-- {{#if is_mod}}
 			{{#each players}}
 				<p>{{username}} permissions: {{player_permissions}}</p>
 			{{/each}}
-		{{/if}}
+		{{/if}} -->
 		{{#each log_events}}
 			{{> log_event}}
 		{{/each}}

@@ -275,7 +275,7 @@ if (Meteor.isClient) {
 
 	Template.fixed_footer.events({
 		"click #mod_prompt_page_button": function(event) {
-			Session.set("page", "mod_prompt");
+			Session.set("page", "player_cards");
 		},
 		"click #mod_choice_page_button": function(event) {
 			Session.set("page", "mod_choice");
@@ -392,6 +392,12 @@ if (Meteor.isClient) {
 		"click .setup-game-halftime": function(event) {
 			Meteor.call("setupGame", this.gid, {roleListList: halftimeDefaultRoleList, maxPlayerCount: 30, expansionList: [0]});
 		},
+		"click .setup-game-kingscourt": function(event) {
+			Meteor.call("setupGame", this.gid, {roleListList: kingscourtDefaultRoleList, maxPlayerCount: 30, expansionList: [1]});
+		},
+		"click .setup-game-loveandwar": function(event) {
+			Meteor.call("setupGame", this.gid, {roleListList: loveandwarDefaultRoleList, maxPlayerCount: 30, expansionList: [2]});
+		},
 		"click .step-game": function(event) {
 			Meteor.call("step", this.gid, false);
 		},
@@ -468,7 +474,11 @@ if (Meteor.isClient) {
 //begin player_cards_page
 	Template.player_cards_page.helpers({
 		"player": function() {
-			if (this.private.playerList.length == 1) {
+			if (this.private == undefined) {
+				return [];
+			} else if (this.private.playerList == undefined ){
+				return [];
+			} else if (this.private.playerList.length == 1) {
 				return this.private.playerList[0];
 			} else {
 				return this.private.playerList[Session.get('pid')];

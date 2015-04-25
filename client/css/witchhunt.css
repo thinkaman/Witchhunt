@@ -76,6 +76,8 @@ h1 {
     border-right-style: none;
     border-top-style: solid;
     border-bottom-style: none; }
+  #fixed_footer .disabled {
+    color: #888888; }
 
 button {
   border-radius: 3px;

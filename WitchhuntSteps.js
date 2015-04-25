@@ -104,6 +104,10 @@ stepDict = {
 			var myTeamBreakpointDict = baseSetTeamBreakpointDict;
 			if (g.expansionList.indexOf(masterExpansionList.indexOf("Halftime")) != -1) {
 				myTeamBreakpointDict = halftimeTeamBreakpointDict;
+			} else if (g.expansionList.indexOf(masterExpansionList.indexOf("King's Court")) != -1) {
+				myTeamBreakpointDict = kingscourtTeamBreakpointDict;
+			} else if (g.expansionList.indexOf(masterExpansionList.indexOf("Love & War")) != -1) {
+				myTeamBreakpointDict = loveandwarTeamBreakpointDict;
 			}
 
 			for (var key in myTeamBreakpointDict) {

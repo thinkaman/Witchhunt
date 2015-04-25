@@ -2,7 +2,7 @@ MIN_GAME_SIZE = 7;
 MAX_GAME_SIZE = 30;
 MAX_ROLE_COUNT = 3;
 
-adminNames = ["cpi", "herny", "broncobuster", "testmod"];
+adminNames = ["cpi", "herny", "broncobuster", "testmod", "Irish"];
 
 debugNames = ["John",
               "Rose",
@@ -39,6 +39,7 @@ debugNames = ["John",
               "herny",
               "broncobuster",
               "testmod",
+              "Irish",
              ];
 
 phaseStyleDict = {"Game Start":     "gs",
@@ -143,7 +144,7 @@ masterRoleList =   ["Priest",
                     "Admiral",
                     "Vampire Hunter"];      //index 58
 
-baseSetDefaultRoleList = [[0,12],[1,4,7,8,2,5,6,11,9,3,10,13,18,20,16,17,14,19]];
+baseSetDefaultRoleList = [[0,12],[1,4,7,8,2,5,6,11,9,3,10,13,18,20,16,17,14,15]];
 
 abbrevRoleList =   ["P",
                     "J",
@@ -274,6 +275,16 @@ halftimeTeamBreakpointDict ={"-1": [3,6,9,20], //do not include holies or peasan
                               "2": [14,17,23],
                             };
 
+kingscourtTeamBreakpointDict ={"-1": [3,6,9,20], //do not include holies or peasants!
+                               "-3": [14,17,23],
+                                "3": [14,17,23],
+                              };
+
+loveandwarTeamBreakpointDict ={"-1": [3,6,9,20], //do not include holies or peasants!
+                               "-4": [14,17,23],
+                                "4": [14,14,17,17,23,23], //TODO - subteams
+                              };
+
 masterMandatoryRoleList =   [0,1,4,7];
 masterDisabledRoleList =    [12,13,14,15,16,17,18,19,20,21,22,23,24];
 masterRoleDependencyDict =  { 8: [1,7], //nesting not allowed
@@ -299,8 +310,10 @@ masterExpansionDependencyDict =  {25: [0],
 
 masterExpansionRequirementDict = {1: [34]}; //king required in KC games; check at startGame
 
-baseSetDefaultRoleList = [[0,12],[1,4,7,8,2,5,6,11,9,3,10,13,18,20,16,17,14,19]];
-halftimeDefaultRoleList = [[0,22],[1,4,7,8,2,5,11,3,10,20,24,23,27,32,25,28,29,31,30,26,6,9,33,13,14,18,17,16]];
+baseSetDefaultRoleList =  [[0,12],[1,4,7,8,2,5 ,6,11,9,3,10,13 ,18,20,16, 17,14,15]]; //max 20
+halftimeDefaultRoleList =   [[0,22],[1,4,7,8,2,5,11,3,10,20,24,23, 27,32,25, 28,29,31, 30,26,6, 33,9,13,14,18,17,16]];
+kingscourtDefaultRoleList = [[0,34],[1,4,7,8,2,5,11,3,10,35,36,38, 39,16,37, 40,41,42, 43,44,45, 6,13,9,20,14,18,17]];
+loveandwarDefaultRoleList = [[0,46],[1,4,7,8,2,5,11,3,10,18,47,48, 52,53,49, 50,51,54, 55,56,57, 6,9,14,17,16,20,13]];
 
 deathLocationStringDict = { 0: "Across from the Alehouse",
                             1: "Beneath a Bridge",
